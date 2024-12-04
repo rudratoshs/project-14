@@ -35,6 +35,23 @@ export const topicGenerationQueue = new Queue('topicGeneration', {
   },
 });
 
+// Queue for subtopic generation
+export const subtopicGenerationQueue = new Queue('subtopicGeneration', {
+  redis: {
+    port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379,
+    host: process.env.REDIS_HOST || 'localhost',
+  },
+  defaultJobOptions: {
+    attempts: 2,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+    removeOnComplete: true,
+    removeOnFail: false,
+  },
+});
+
 // Queue for image generation
 export const imageGenerationQueue = new Queue('imageGeneration', {
   redis: {
@@ -53,7 +70,7 @@ export const imageGenerationQueue = new Queue('imageGeneration', {
 });
 
 // Queue event handlers
-const queues = [courseGenerationQueue, topicGenerationQueue, imageGenerationQueue];
+const queues = [courseGenerationQueue, topicGenerationQueue, subtopicGenerationQueue, imageGenerationQueue];
 
 queues.forEach(queue => {
   queue.on('completed', (job) => {

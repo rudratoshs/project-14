@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { CourseService } from '../services/course.service';
 import { CreateCourseData, UpdateCourseData } from '../types/course';
-import { courseGenerationQueue, topicGenerationQueue } from '../queues';
+import { courseGenerationQueue, topicGenerationQueue, subtopicGenerationQueue } from '../queues';
 import { v4 as uuidv4 } from 'uuid';
 import JobProgress from '../models/mongodb/JobProgress';
 
@@ -43,6 +43,8 @@ export class CourseController {
   async getJobStatus(req: Request, res: Response) {
     try {
       const { jobId } = req.params;
+      console.log('Fetching job status for:', { jobId });
+
       const jobProgress = await JobProgress.findOne({ jobId });
 
       if (!jobProgress) {
@@ -164,16 +166,24 @@ export class CourseController {
     try {
       const { courseId, topicId, subtopicId } = req.params;
 
-      const subtopic = await this.courseService.generateSubtopicContent(
+      // Generate a unique job ID
+      const jobId = uuidv4();
+
+      // Add job to queue
+      const job = await subtopicGenerationQueue.add({
         courseId,
         topicId,
-        subtopicId
-      );
-
-      res.json(subtopic);
+        subtopicId,
+        jobId
+      });
+      console.log('Job added to the queue:', { jobId, job });
+      // Return the job ID immediately
+      res.status(202).json({
+        message: 'Subtopic generation started',
+        jobId
+      });
     } catch (error) {
       console.error('Generate subtopic content error:', error);
-
       res.status(400).json({
         message:
           error instanceof Error

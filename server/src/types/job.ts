@@ -14,13 +14,50 @@ export interface JobProgress {
     currentImage?: string;
     subtopicsCompleted?: number;
     totalSubtopics?: number;
+    currentSubtopic?: string;
   };
   error?: string;
   result?: {
     thumbnail?: string;
     banner?: string;
+    content?: string;
     [key: string]: any;
   };
+}
+
+export interface CourseGenerationJob {
+  userId: string;
+  courseData: {
+    title: string;
+    description: string;
+    type: 'image_theory' | 'video_theory';
+    accessibility: 'free' | 'paid' | 'limited';
+    numTopics: number;
+    subtopics?: string[];
+  };
+  jobId: string;
+}
+
+export interface TopicGenerationJob {
+  courseId: string;
+  topicId: string;
+  jobId: string;
+}
+
+export interface SubtopicGenerationJob {
+  courseId: string;
+  topicId: string;
+  subtopicId: string;
+  jobId: string;
+}
+
+export interface ImageGenerationJob {
+  prompt: string;
+  size: 'thumbnail' | 'banner';
+  courseId: string;
+  topicId?: string;
+  subtopicId?: string;
+  jobId: string;
 }
 
 export const PROGRESS_STEPS = {
@@ -28,19 +65,15 @@ export const PROGRESS_STEPS = {
     name: 'Initializing',
     progress: 0,
   },
-  COURSE_STRUCTURE: {
-    name: 'Generating Course Structure',
-    progress: 10,
-  },
   CONTENT_GENERATION: {
     TOPIC: {
       name: 'Generating Topic Content',
       progress: 30,
-      increment:1.5,
     },
     SUBTOPIC: {
       name: 'Generating Subtopic Content',
       progress: 50,
+      increment: 10, // For incremental progress per subtopic
     },
   },
   IMAGE_GENERATION: {
@@ -50,15 +83,11 @@ export const PROGRESS_STEPS = {
     },
     BANNERS: {
       name: 'Generating Banners',
-      progress: 80,
-    },
-    SUBTOPICS: {
-      name: 'Generating Subtopic Images',
       progress: 90,
     },
   },
   FINALIZING: {
-    name: 'Finalizing Course',
+    name: 'Finalizing',
     progress: 100,
   },
 };
@@ -98,30 +127,33 @@ export const TOPIC_GENERATION_STEPS = {
   },
 };
 
-export interface CourseGenerationJob {
-  userId: string;
-  courseData: {
-    title: string;
-    description: string;
-    type: 'image_theory' | 'video_theory';
-    accessibility: 'free' | 'paid' | 'limited';
-    numTopics: number;
-    subtopics?: string[];
-  };
-  jobId: string;
-}
-
-export interface TopicGenerationJob {
-  courseId: string;
-  topicId: string;
-  jobId: string;
-}
-
-export interface ImageGenerationJob {
-  prompt: string;
-  size: 'thumbnail' | 'banner';
-  courseId: string;
-  topicId?: string;
-  subtopicId?: string;
-  jobId: string;
-}
+export const SUBTOPIC_GENERATION_STEPS = {
+  INITIALIZING: {
+    name: 'Initializing Subtopic Generation',
+    progress: 0,
+  },
+  CONTENT_GENERATION: {
+    SUBTOPIC_OVERVIEW: {
+      name: 'Generating Subtopic Overview',
+      progress: 20,
+    },
+    SUBTOPIC_CONTENT: {
+      name: 'Generating Subtopic Detailed Content',
+      progress: 50,
+    },
+  },
+  IMAGE_GENERATION: {
+    SUBTOPIC_THUMBNAILS: {
+      name: 'Generating Subtopic Thumbnails',
+      progress: 70,
+    },
+    SUBTOPIC_BANNERS: {
+      name: 'Generating Subtopic Banners',
+      progress: 90,
+    },
+  },
+  FINALIZING: {
+    name: 'Finalizing Subtopic Generation',
+    progress: 100,
+  },
+};
