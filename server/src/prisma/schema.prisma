@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(uuid())
+  name             String
+  email            String   @unique
+  password         String
+  roleId           String
+  subscriptionPlan String   @default("free")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  role             Role     @relation(fields: [roleId], references: [id])
+  courses          Course[] // Add this field to establish the reverse relation
+
+  @@index([roleId])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  users       User[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model Course {
+  id            String   @id @default(uuid())
+  title         String
+  description   String   @db.Text
+  type          String   @default("image_theory")
+  accessibility String   @default("free")
+  userId        String
+  mongoId       String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id]) // Forward relation to User
+
+  @@index([userId])
+  @@map("courses")
+
+}
