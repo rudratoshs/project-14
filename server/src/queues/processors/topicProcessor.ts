@@ -8,12 +8,12 @@ const courseService = new CourseService();
 
 export async function processTopicGeneration(job: Job<TopicGenerationJob>) {
     const { courseId, topicId, jobId } = job.data;
-
+    console.log('jobId processTopicGeneration', jobId)
     try {
         // Initialize job progress
         await updateJobProgress(jobId, {
             jobId,
-            userId: courseId, // Using courseId as userId for tracking
+            userId: courseId,
             status: 'processing',
             progress: TOPIC_GENERATION_STEPS.INITIALIZING.progress,
             currentStep: TOPIC_GENERATION_STEPS.INITIALIZING.name,

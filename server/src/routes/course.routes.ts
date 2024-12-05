@@ -49,4 +49,10 @@ router.post(
   (req, res) => courseController.generateSubtopicContent(req, res)
 );
 
+router.get(
+  '/:courseId/topics/:topicId/subtopics/:subtopicId',
+  requirePermission('view_course'),
+  (req, res) => courseController.getSubtopicById(req, res)
+);
+
 export default router;

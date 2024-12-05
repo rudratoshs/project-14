@@ -278,6 +278,30 @@ export class CourseService {
       console.error('Test failed:', error.message);
     }
   }
+  async getSubtopicById(courseId: string, topicId: string, subtopicId: string) {
+    try {
+      const course = await Course.findById(courseId);
+
+      if (!course) {
+        throw new Error('Course not found');
+      }
+
+      const topic = course.topics.find((t) => t.id === topicId);
+      if (!topic) {
+        throw new Error('Topic not found');
+      }
+
+      const subtopic = topic.subtopics?.find((s) => s.id === subtopicId);
+      if (!subtopic) {
+        throw new Error('Subtopic not found');
+      }
+
+      return subtopic;
+    } catch (error) {
+      console.error('Error fetching subtopic:', error);
+      throw error;
+    }
+  }
 }
 
 export default new CourseService();

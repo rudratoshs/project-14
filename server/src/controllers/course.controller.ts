@@ -145,7 +145,7 @@ export class CourseController {
         topicId,
         jobId
       });
-
+      console.log('Topic generation started', jobId)
       // Return the job ID immediately
       res.status(202).json({
         message: 'Topic generation started',
@@ -189,6 +189,26 @@ export class CourseController {
           error instanceof Error
             ? error.message
             : 'Failed to generate subtopic content',
+      });
+    }
+  }
+
+  async getSubtopicById(req: Request, res: Response) {
+    try {
+      const { courseId, topicId, subtopicId } = req.params;
+
+      // Fetch the subtopic data from the service
+      const subtopic = await this.courseService.getSubtopicById(courseId, topicId, subtopicId);
+
+      if (!subtopic) {
+        return res.status(404).json({ message: 'Subtopic not found' });
+      }
+
+      res.json(subtopic);
+    } catch (error) {
+      console.error('Get subtopic error:', error);
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Failed to fetch subtopic',
       });
     }
   }

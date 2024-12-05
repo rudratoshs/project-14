@@ -39,7 +39,6 @@ export function useJobProgress(jobId: string | null) {
     socketInstance.emit('subscribeToJob', jobId);
     
     socketInstance.on(`jobProgress:${jobId}`, (data: JobProgress) => {
-      console.log('Progress update received:', data);
       setProgress(data);
     });
 

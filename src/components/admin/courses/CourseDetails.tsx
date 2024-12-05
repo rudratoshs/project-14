@@ -29,7 +29,7 @@ import { getCourse } from '@/lib/api/courses';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { CopyBlock, dracula, CodeBlock } from "react-code-blocks";
-import { generateTopicContent } from '@/lib/api/courses';
+import { generateTopicContent, generateSubtopicContent, getSubtopic } from '@/lib/api/courses';
 import CourseProgress from './CourseProgress';
 import { useJobProgress } from '@/hooks/useJobProgress';
 
@@ -43,7 +43,48 @@ export default function CourseDetails() {
     const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null);
     const [openTopicId, setOpenTopicId] = useState<string | undefined>(undefined);
     const [generatingTopicId, setGeneratingTopicId] = useState<string | null>(null);
-    const { progress } = useJobProgress(generatingTopicId);
+    const [generatingSubtopicId, setGeneratingSubtopicId] = useState<string | null>(null);
+    const [generatingSubopicJobId, setGeneratingSubtopicJobId] = useState<string | null>(null);
+
+
+    const { progress } = useJobProgress(generatingSubopicJobId);
+
+    useEffect(() => {
+        if (progress?.status === 'completed' && generatingSubtopicId) {
+            const updateSubtopic = async () => {
+                const updatedSubtopic = await fetchUpdatedSubtopic(
+                    course?.id || '',
+                    selectedTopic?.id || '',
+                    generatingSubtopicId
+                );
+    
+                if (updatedSubtopic) {
+                    setCourse((prevCourse) => {
+                        if (!prevCourse) return null;
+    
+                        const updatedTopics = prevCourse.topics.map((topic) =>
+                            topic.id === selectedTopic?.id
+                                ? {
+                                      ...topic,
+                                      subtopics: topic.subtopics?.map((sub) =>
+                                          sub.id === generatingSubtopicId ? updatedSubtopic : sub
+                                      ),
+                                  }
+                                : topic
+                        );
+    
+                        return { ...prevCourse, topics: updatedTopics };
+                    });
+    
+                    // Clear generatingSubtopicId to indicate completion
+                    setGeneratingSubtopicId(null);
+                }
+            };
+    
+            updateSubtopic();
+        }
+    }, [progress?.status, generatingSubtopicId, course?.id, selectedTopic?.id]);
+
     useEffect(() => {
         const fetchCourse = async () => {
             try {
@@ -64,6 +105,26 @@ export default function CourseDetails() {
 
         fetchCourse();
     }, [id, navigate]);
+
+    const fetchUpdatedSubtopic = async (courseId: string, topicId: string, subtopicId: string) => {
+        try {
+            const updatedSubtopic = await getSubtopic(courseId, topicId, subtopicId);
+
+            // Check if the API response is valid
+            if (!updatedSubtopic) {
+                throw new Error('Failed to fetch updated subtopic');
+            }
+            return updatedSubtopic;
+        } catch (error) {
+            console.error('Error fetching updated subtopic:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to update subtopic content',
+            });
+            return null;
+        }
+    };
 
     const formatContent = (content: string) => {
         // Split content into sections
@@ -152,10 +213,12 @@ export default function CourseDetails() {
         });
     };
 
-    const renderSubtopicContent = (subtopic: Subtopic, topic: Topic) => {
+    const renderSubtopicContent = (course: Course, subtopic: Subtopic, topic: Topic) => {
         if (!subtopic) return null;
-        console.log('topic',topic)
-        const isGenerating = generatingTopicId === topic.id;
+
+        const isGenerating = generatingSubtopicId === subtopic.id && progress?.status !== 'completed';
+        const isCompleted = subtopic.status === 'complete' && subtopic.content;
+
         return (
             <div className="space-y-6">
                 {/* Title */}
@@ -183,19 +246,21 @@ export default function CourseDetails() {
                 )}
 
                 {/* Content or Generate Button */}
-                {subtopic.status === 'complete' ? (
+                {isCompleted ? (
                     <div className="prose prose-gray max-w-none">
                         {formatContent(subtopic.content)}
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {isGenerating ? (
+                        {isGenerating && progress ? (
                             <CourseProgress progress={progress} />
+                        ) : isGenerating ? (
+                            <p className="text-blue-500">Waiting for progress updates...</p>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
-                                <p className="text-muted-foreground mb-4">Content needs to be generated</p>
+                                <p className="text-muted-foreground mb-4">Content needs to be generated for this Subtopic</p>
                                 <Button
-                                    onClick={() => handleGenerateContent(topic)}
+                                    onClick={() => handleGenerateSubtopicContent(course, topic, subtopic)}
                                     className="flex items-center gap-2"
                                 >
                                     <Wand2 className="h-4 w-4" />
@@ -243,8 +308,7 @@ export default function CourseDetails() {
     const handleGenerateContent = async (topic: Topic) => {
         try {
             if (!id) return;
-            setGeneratingTopicId(topic.id); // Set the topic being generated
-
+            setGeneratingTopicId(topic.id);
             const response = await generateTopicContent(id, topic.id);
             if (response.jobId) {
                 // Update course with the new jobId
@@ -260,6 +324,37 @@ export default function CourseDetails() {
                 description: 'Failed to generate topic content'
             });
             setGeneratingTopicId(null); // Clear generating state on error
+        }
+    };
+
+    const handleGenerateSubtopicContent = async (course: Course, topic: Topic, subtopic: Subtopic) => {
+        try {
+            if (!id) return;
+
+            setGeneratingSubtopicId(subtopic.id);
+            setSelectedTopic(topic)
+            const response = await generateSubtopicContent(course.id, topic.id, subtopic.id);
+            setGeneratingSubtopicJobId(response.jobId); // Set jobId for progress tracking
+
+            if (response.jobId) {
+                const updatedTopics = course?.topics.map(t => ({
+                    ...t,
+                    subtopics: t.subtopics?.map(sub =>
+                        sub.id === subtopic.id ? { ...sub, jobId: response.jobId } : sub
+                    ) || [],
+                }));
+                setCourse(prev => (prev ? { ...prev, topics: updatedTopics } : null));
+            }
+        } catch (error) {
+            console.error('Error generating subtopic content:', error);
+
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to generate subtopic content',
+            });
+
+            setGeneratingSubtopicJobId(null); // Clear generating state on error
         }
     };
 
@@ -443,7 +538,7 @@ export default function CourseDetails() {
                                                                     {/* Subtopic Content */}
                                                                     {selectedSubtopic?.id === subtopic.id && (
                                                                         <div className="mt-4 p-6 bg-gray-50 rounded-lg">
-                                                                            {renderSubtopicContent(subtopic,topic)}
+                                                                            {renderSubtopicContent(course, subtopic, topic)}
                                                                         </div>
                                                                     )}
                                                                 </div>

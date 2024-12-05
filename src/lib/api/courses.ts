@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Course, CreateCourseData, UpdateCourseData } from '../types/course';
+import { Course, CreateCourseData, UpdateCourseData,Subtopic } from '../types/course';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -90,6 +90,26 @@ export const generateTopicContent = async (courseId: string, topicId: string): P
     return response.data;
   } catch (error) {
     console.error('Error generating topic content:', error);
+    throw error;
+  }
+};
+
+export const generateSubtopicContent = async (courseId: string, topicId: string, subtopicId: string): Promise<{ jobId: string }> => {
+  try {
+    const response = await axios.post(`/courses/${courseId}/topics/${topicId}/subtopics/${subtopicId}/generate`);
+    return response.data;
+  } catch (error) {
+    console.error('Error generating topic content:', error);
+    throw error;
+  }
+};
+
+export const getSubtopic = async (courseId: string, topicId: string, subtopicId: string): Promise<Subtopic> => {
+  try {
+    const response = await axios.get(`/courses/${courseId}/topics/${topicId}/subtopics/${subtopicId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching subtopic:', error);
     throw error;
   }
 };
