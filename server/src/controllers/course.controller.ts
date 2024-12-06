@@ -17,8 +17,26 @@ export class CourseController {
       const userId = req.user!.id;
       const data: CreateCourseData = req.body;
 
+      // Validate required fields
+      if (!data.title?.trim()) {
+        return res.status(400).json({ message: 'Title is required' });
+      }
+
+      if (!data.description?.trim()) {
+        return res.status(400).json({ message: 'Description is required' });
+      }
+
       // Generate a unique job ID
       const jobId = uuidv4();
+
+      // Create initial job progress
+      await JobProgress.create({
+        jobId,
+        userId,
+        status: 'pending',
+        progress: 0,
+        currentStep: 'Initializing'
+      });
 
       // Add job to queue
       await courseGenerationQueue.add({
@@ -43,21 +61,25 @@ export class CourseController {
   async getJobStatus(req: Request, res: Response) {
     try {
       const { jobId } = req.params;
-      console.log('Fetching job status for:', { jobId });
+      console.log('Fetching job status for:', jobId);
 
-      const jobProgress = await JobProgress.findOne({ jobId });
+      const jobProgress = await JobProgress.findOne({ jobId }).lean();
 
       if (!jobProgress) {
+        console.log('Job not found:', jobId);
         return res.status(404).json({ message: 'Job not found' });
       }
 
+      console.log('Found job progress:', jobProgress);
       res.json(jobProgress);
     } catch (error) {
+      console.error('Error fetching job status:', error);
       res.status(500).json({
         message: error instanceof Error ? error.message : 'Failed to fetch job status',
       });
     }
   }
+
 
   async previewCourse(req: Request, res: Response) {
     try {

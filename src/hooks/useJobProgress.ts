@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { JobProgress } from '@/lib/types/job';
-import axios from 'axios';
+import { getJobProgress } from '@/lib/api/courses';
 
-console.log('VITE_API_URL',import.meta.env.VITE_SOCKET_URL)
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL?.replace(/^http/, 'ws') || 'ws://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL?.replace(/^http/, 'ws') || 'ws://localhost:3001';
 
 export function useJobProgress(jobId: string | null) {
   const [progress, setProgress] = useState<JobProgress | null>(null);
@@ -17,8 +16,9 @@ export function useJobProgress(jobId: string | null) {
     // First fetch the current progress
     const fetchProgress = async () => {
       try {
-        const response = await axios.get(`/courses/job/${jobId}`);
-        setProgress(response.data);
+        const data = await getJobProgress(jobId);
+        console.log('Initial progress data:', data);
+        setProgress(data);
       } catch (err) {
         console.error('Error fetching initial progress:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch progress');
@@ -30,7 +30,10 @@ export function useJobProgress(jobId: string | null) {
     // Initialize socket connection
     const socketInstance = io(SOCKET_URL, {
       transports: ['websocket'],
-      path: '/socket.io'
+      path: '/socket.io',
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
 
     setSocket(socketInstance);
@@ -39,6 +42,7 @@ export function useJobProgress(jobId: string | null) {
     socketInstance.emit('subscribeToJob', jobId);
     
     socketInstance.on(`jobProgress:${jobId}`, (data: JobProgress) => {
+      console.log('Received progress update:', data);
       setProgress(data);
     });
 
@@ -46,6 +50,12 @@ export function useJobProgress(jobId: string | null) {
     socketInstance.on('connect_error', (err) => {
       console.error('Socket connection error:', err);
       setError(`Connection error: ${err.message}`);
+    });
+
+    // Handle reconnection
+    socketInstance.on('reconnect', () => {
+      console.log('Socket reconnected');
+      socketInstance.emit('subscribeToJob', jobId);
     });
 
     // Cleanup on unmount

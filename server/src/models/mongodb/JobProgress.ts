@@ -14,9 +14,17 @@ export interface IJobProgress extends Document {
     totalImages?: number;
     currentTopic?: string;
     currentImage?: string;
+    subtopicsCompleted?: number;
+    totalSubtopics?: number;
+    currentSubtopic?: string;
   };
   error?: string;
-  result?: any;
+  result?: {
+    thumbnail?: string;
+    banner?: string;
+    content?: string;
+    [key: string]: any;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,7 +50,9 @@ const JobProgressSchema = new Schema<IJobProgress>(
     },
     progress: { 
       type: Number, 
-      default: 0 
+      default: 0,
+      min: 0,
+      max: 100
     },
     currentStep: { 
       type: String, 
@@ -57,14 +67,16 @@ const JobProgressSchema = new Schema<IJobProgress>(
       imagesCompleted: { type: Number },
       totalImages: { type: Number },
       currentTopic: { type: String },
-      currentImage: { type: String }
+      currentImage: { type: String },
+      subtopicsCompleted: { type: Number },
+      totalSubtopics: { type: Number },
+      currentSubtopic: { type: String }
     },
     error: { type: String },
     result: { type: Schema.Types.Mixed }
   },
   { 
     timestamps: true,
-    // Add this to prevent duplicate key errors during upserts
     storeSubdocValidationError: false
   }
 );
@@ -87,6 +99,13 @@ JobProgressSchema.pre('save', async function(next) {
     next(error);
   }
 });
+
+// Add indexes for better query performance
+JobProgressSchema.index({ jobId: 1 }, { unique: true });
+JobProgressSchema.index({ userId: 1 });
+JobProgressSchema.index({ status: 1 });
+JobProgressSchema.index({ createdAt: 1 });
+JobProgressSchema.index({ updatedAt: 1 });
 
 const JobProgress = mongoose.model<IJobProgress>('JobProgress', JobProgressSchema);
 

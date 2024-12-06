@@ -69,6 +69,7 @@ export const PROGRESS_STEPS = {
     TOPIC: {
       name: 'Generating Topic Content',
       progress: 30,
+      increment:1.5
     },
     SUBTOPIC: {
       name: 'Generating Subtopic Content',

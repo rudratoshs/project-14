@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, Plus } from 'lucide-react';
 import { Course } from '@/lib/types/course';
 import { getCourses } from '@/lib/api/courses';
+import { debounce } from 'lodash';
 import CourseGrid from './CourseGrid';
 import CreateCourseDialog from './CreateCourseDialog';
 
@@ -16,25 +17,30 @@ export default function CourseList() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const fetchCourses = async () => {
-    try {
-      setLoading(true);
-      const data = await getCourses();
-      setCourses(data);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to fetch courses',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchCourses = useCallback(
+    debounce(async () => {
+      try {
+        setLoading(true);
+        const data = await getCourses();
+        console.log('data',data)
+        setCourses(data);
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to fetch courses',
+        });
+      } finally {
+        setLoading(false);
+      }
+    }, 300), // Debounce by 300ms
+    []
+  );
 
   useEffect(() => {
     fetchCourses();
-  }, []);
+    return fetchCourses.cancel; // Clean up the debounce on unmount
+  }, [fetchCourses]);
 
   const handleCourseClick = (course: Course) => {
     navigate(`/admin/courses/${course.id}`);
@@ -44,7 +50,7 @@ export default function CourseList() {
     const headers = ['Title', 'Type', 'Accessibility', 'Topics', 'Created At'];
     const csvContent = [
       headers.join(','),
-      ...courses.map(course =>
+      ...courses.map((course) =>
         [
           course.title,
           course.type,
@@ -103,7 +109,7 @@ export default function CourseList() {
           ))}
         </div>
       ) : (
-        <CourseGrid 
+        <CourseGrid
           courses={courses}
           onCourseClick={handleCourseClick}
         />

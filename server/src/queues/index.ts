@@ -18,6 +18,15 @@ export const courseGenerationQueue = new Queue('courseGeneration', {
   },
 });
 
+// Add event listeners
+courseGenerationQueue.on('ready', () => {
+  console.log('Queue is ready and connected to Redis');
+});
+
+courseGenerationQueue.on('error', (err) => {
+  console.error('Redis connection error:', err);
+});
+
 // Queue for topic generation
 export const topicGenerationQueue = new Queue('topicGeneration', {
   redis: {

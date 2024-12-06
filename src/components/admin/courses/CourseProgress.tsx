@@ -1,8 +1,9 @@
 import { ProgressBar } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { JobProgress } from '@/lib/types/job';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, BookOpen, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface CourseProgressProps {
   progress: JobProgress | null;
@@ -27,7 +28,7 @@ export default function CourseProgress({ progress, className }: CourseProgressPr
 
   return (
     <div className={cn('space-y-4', className)}>
-      {/* Progress Bar */}
+      {/* Main Progress */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className={cn(
@@ -43,7 +44,7 @@ export default function CourseProgress({ progress, className }: CourseProgressPr
             isFailed && "text-red-600",
             isProcessing && "text-blue-600"
           )}>
-            {progress.progress}%
+            {Math.round(progress.progress)}%
           </span>
         </div>
         <ProgressBar 
@@ -55,59 +56,98 @@ export default function CourseProgress({ progress, className }: CourseProgressPr
         />
       </div>
 
-      {/* Details */}
+      {/* Detailed Progress */}
       {progress.details && (
-        <div className="space-y-2 text-sm">
-          {progress.details.currentTopic && (
-            <p className="text-muted-foreground">
-              {progress.details.currentTopic}
-            </p>
-          )}
-          {progress.details.currentImage && (
-            <p className="text-muted-foreground italic">
-              {progress.details.currentImage}
-            </p>
-          )}
-          <div className="flex gap-4">
-            {progress.details.topicsCompleted !== undefined && (
-              <p className={cn(
-                "text-muted-foreground",
-                isProcessing && "animate-pulse"
-              )}>
-                Topics: {progress.details.topicsCompleted} / {progress.details.totalTopics}
-              </p>
+        <Card className="border-dashed">
+          <CardContent className="pt-4 pb-3">
+            <div className="grid gap-4">
+              {/* Topics Progress */}
+              {progress.details.topicsCompleted !== undefined && (
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium">Topics Progress</span>
+                      <span className="text-sm text-muted-foreground">
+                        {progress.details.topicsCompleted} / {progress.details.totalTopics}
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={(progress.details.topicsCompleted / progress.details.totalTopics) * 100}
+                      className="h-1.5 bg-primary/20"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Images Progress */}
+              {progress.details.imagesCompleted !== undefined && (
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-purple-500/10 flex items-center justify-center">
+                    <ImageIcon className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium">Images Progress</span>
+                      <span className="text-sm text-muted-foreground">
+                        {progress.details.imagesCompleted} / {progress.details.totalImages}
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={(progress.details.imagesCompleted / progress.details.totalImages) * 100}
+                      className="h-1.5 bg-purple-500/20"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Current Activity */}
+            {(progress.details.currentTopic || progress.details.currentImage) && (
+              <div className="mt-4 space-y-2 border-t pt-3">
+                {progress.details.currentTopic && (
+                  <div className="flex items-start gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary mt-2" />
+                    <p className="text-sm text-muted-foreground flex-1">
+                      {progress.details.currentTopic}
+                    </p>
+                  </div>
+                )}
+                {progress.details.currentImage && (
+                  <div className="flex items-start gap-2">
+                    <div className="h-2 w-2 rounded-full bg-purple-500 mt-2" />
+                    <p className="text-sm text-muted-foreground flex-1 italic">
+                      {progress.details.currentImage}
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
-            {progress.details.imagesCompleted !== undefined && (
-              <p className={cn(
-                "text-muted-foreground",
-                isProcessing && "animate-pulse"
-              )}>
-                Images: {progress.details.imagesCompleted} / {progress.details.totalImages}
-              </p>
-            )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Status Indicators */}
       {isCompleted && (
         <Alert className="bg-green-500/10 text-green-500 border-green-500/20">
           <CheckCircle2 className="h-4 w-4" />
-          <AlertDescription>Content generation completed successfully!</AlertDescription>
+          <AlertDescription>Generation completed successfully!</AlertDescription>
         </Alert>
       )}
 
       {isFailed && (
         <Alert className="bg-red-500/10 text-red-500 border-red-500/20">
           <XCircle className="h-4 w-4" />
-          <AlertDescription>{progress.error || 'Content generation failed'}</AlertDescription>
+          <AlertDescription>{progress.error || 'Generation failed'}</AlertDescription>
         </Alert>
       )}
 
-      {isProcessing && progress.details?.currentTopic && (
+      {isProcessing && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{progress.details.currentTopic}</span>
+          <span>Generating content...</span>
         </div>
       )}
     </div>

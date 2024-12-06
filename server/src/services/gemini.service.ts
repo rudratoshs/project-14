@@ -313,22 +313,22 @@ export class GeminiService {
     let topicBanner = '';
     const unixTimestamp = Math.floor(Date.now() / 1000);
 
-    if (currentTopicIndex === 0) {
-      const topicTextPrompt = generateTextPromptForImage(topic.title, data.title).trim();
-      topicThumbnail = await ImageService.generateAndUploadImage(topicTextPrompt, 'thumbnail', true, unixTimestamp);
-      topicBanner = await ImageService.generateAndUploadImage(topicTextPrompt, 'banner', true, unixTimestamp);
-    }
+    // if (currentTopicIndex === 0) {
+    //   const topicTextPrompt = generateTextPromptForImage(topic.title, data.title).trim();
+    //   topicThumbnail = await ImageService.generateAndUploadImage(topicTextPrompt, 'thumbnail', true, unixTimestamp);
+    //   topicBanner = await ImageService.generateAndUploadImage(topicTextPrompt, 'banner', true, unixTimestamp);
+    // }
 
     const subtopics = await Promise.all(
       topic.subtopics.map(async (subtopic: any, subIndex: number) => {
         let subtopicThumbnail = '';
         let subtopicBanner = '';
 
-        if (currentTopicIndex === 0) {
-          const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, data.title).trim();
-          subtopicThumbnail = await ImageService.generateAndUploadImage(subtopicTextPrompt, 'thumbnail', true, unixTimestamp);
-          subtopicBanner = await ImageService.generateAndUploadImage(subtopicTextPrompt, 'banner', true, unixTimestamp);
-        }
+        // if (currentTopicIndex === 0) {
+        //   const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, data.title).trim();
+        //   subtopicThumbnail = await ImageService.generateAndUploadImage(subtopicTextPrompt, 'thumbnail', true, unixTimestamp);
+        //   subtopicBanner = await ImageService.generateAndUploadImage(subtopicTextPrompt, 'banner', true, unixTimestamp);
+        // }
 
         return {
           title: subtopic.title,

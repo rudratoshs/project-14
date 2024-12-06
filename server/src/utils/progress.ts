@@ -7,7 +7,9 @@ export async function updateJobProgress(
   update: Partial<JobProgress>
 ): Promise<void> {
   try {
-    // Use findOneAndUpdate with upsert option to handle race conditions
+    console.log('Updating job progress:', { jobId, update });
+
+    // Use findOneAndUpdate with upsert option
     const updatedProgress = await JobProgressModel.findOneAndUpdate(
       { jobId },
       { 
@@ -17,19 +19,27 @@ export async function updateJobProgress(
         }
       },
       { 
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
+        new: true, // Return the updated document
+        upsert: true, // Create if doesn't exist
+        setDefaultsOnInsert: true,
+        runValidators: true // Run schema validators on update
       }
     ).lean();
 
     if (updatedProgress) {
       // Emit progress update via WebSocket
-      io.emit(`jobProgress:${jobId}`, updatedProgress);
+      console.log('Emitting progress update:', {
+        jobId,
+        progress: updatedProgress
+      });
+      
+      // Emit to specific room for this job
+      io.to(`job:${jobId}`).emit(`jobProgress:${jobId}`, updatedProgress);
     }
   } catch (error) {
     if (error.code === 11000) {
       // Handle duplicate key error by retrying without upsert
+      console.log('Handling duplicate key error for job:', jobId);
       try {
         const updatedProgress = await JobProgressModel.findOneAndUpdate(
           { jobId },
@@ -39,11 +49,18 @@ export async function updateJobProgress(
               updatedAt: new Date()
             }
           },
-          { new: true }
+          { 
+            new: true,
+            runValidators: true
+          }
         ).lean();
 
         if (updatedProgress) {
-          io.emit(`jobProgress:${jobId}`, updatedProgress);
+          console.log('Emitting progress update after retry:', {
+            jobId,
+            progress: updatedProgress
+          });
+          io.to(`job:${jobId}`).emit(`jobProgress:${jobId}`, updatedProgress);
         }
       } catch (retryError) {
         console.error('Error updating job progress (retry):', retryError);
@@ -51,5 +68,15 @@ export async function updateJobProgress(
     } else {
       console.error('Error updating job progress:', error);
     }
+  }
+}
+
+export async function getJobProgress(jobId: string): Promise<JobProgress | null> {
+  try {
+    const progress = await JobProgressModel.findOne({ jobId }).lean();
+    return progress;
+  } catch (error) {
+    console.error('Error fetching job progress:', error);
+    return null;
   }
 }

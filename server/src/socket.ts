@@ -6,10 +6,11 @@ const httpServer = createServer(app);
 
 export const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173', // Update to match Vite's default port
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  path: '/socket.io'
 });
 
 io.on('connection', (socket) => {
@@ -21,14 +22,14 @@ io.on('connection', (socket) => {
 
   // Subscribe to job progress updates
   socket.on('subscribeToJob', (jobId: string) => {
-    socket.join(`job:${jobId}`);
     console.log(`Client ${socket.id} subscribed to job ${jobId}`);
+    socket.join(`job:${jobId}`);
   });
 
   // Unsubscribe from job progress updates
   socket.on('unsubscribeFromJob', (jobId: string) => {
-    socket.leave(`job:${jobId}`);
     console.log(`Client ${socket.id} unsubscribed from job ${jobId}`);
+    socket.leave(`job:${jobId}`);
   });
 });
 

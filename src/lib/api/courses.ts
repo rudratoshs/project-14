@@ -1,12 +1,18 @@
 import axios from 'axios';
-import { Course, CreateCourseData, UpdateCourseData,Subtopic } from '../types/course';
+import axiosRetry from 'axios-retry';
+import { debounce } from 'lodash';
+import { Course, CreateCourseData, UpdateCourseData, Subtopic } from '../types/course';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-// Configure axios defaults
 axios.defaults.baseURL = API_URL;
 
-// Add JWT token to requests if available
+axiosRetry(axios, {
+  retries: 3,
+  retryCondition: (error) => axiosRetry.isNetworkOrIdempotentRequestError(error),
+  retryDelay: (retryCount) => retryCount * 1000,
+});
+
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -15,10 +21,25 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error?.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
+const debounceApiCall = debounce((fn) => fn(), 500);
+
 export const getCourses = async (): Promise<Course[]> => {
   try {
     const response = await axios.get('/courses');
-    return response.data;
+    if (response && response.data) {
+      return response.data;
+    } else {
+      console.error('Unexpected API response:', response);
+      throw new Error('Invalid response from API');
+    }
   } catch (error) {
     console.error('Error fetching courses:', error);
     throw error;
@@ -99,7 +120,7 @@ export const generateSubtopicContent = async (courseId: string, topicId: string,
     const response = await axios.post(`/courses/${courseId}/topics/${topicId}/subtopics/${subtopicId}/generate`);
     return response.data;
   } catch (error) {
-    console.error('Error generating topic content:', error);
+    console.error('Error generating subtopic content:', error);
     throw error;
   }
 };
@@ -110,6 +131,16 @@ export const getSubtopic = async (courseId: string, topicId: string, subtopicId:
     return response.data;
   } catch (error) {
     console.error('Error fetching subtopic:', error);
+    throw error;
+  }
+};
+
+export const getJobProgress = async (jobId: string) => {
+  try {
+    const response = await axios.get(`/courses/job/${jobId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching job progress:', error);
     throw error;
   }
 };

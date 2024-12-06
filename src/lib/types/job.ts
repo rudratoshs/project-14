@@ -26,31 +26,30 @@ export const PROGRESS_STEPS = {
     name: 'Initializing',
     progress: 0,
   },
-  COURSE_STRUCTURE: {
-    name: 'Generating Course Structure',
-    progress: 10,
-  },
-  TOPIC_GENERATION: {
-    name: 'Generating Topics',
-    progress: 40,
-    increment: 3,
+  CONTENT_GENERATION: {
+    TOPIC: {
+      name: 'Generating Topic Content',
+      progress: 30,
+      increment: 10,
+    },
+    SUBTOPIC: {
+      name: 'Generating Subtopic Content',
+      progress: 50,
+      increment: 5,
+    }
   },
   IMAGE_GENERATION: {
     THUMBNAILS: {
-      name: 'Generating Topic Thumbnails',
-      progress: 60,
+      name: 'Generating Thumbnails',
+      progress: 70,
     },
     BANNERS: {
-      name: 'Generating Topic Banners',
-      progress: 80,
-    },
-    SUBTOPICS: {
-      name: 'Generating Subtopic Images',
+      name: 'Generating Banners',
       progress: 90,
     },
   },
   FINALIZING: {
-    name: 'Finalizing Course',
+    name: 'Finalizing',
     progress: 100,
   },
 };
