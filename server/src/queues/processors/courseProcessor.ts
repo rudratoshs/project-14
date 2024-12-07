@@ -3,125 +3,144 @@ import { CourseGenerationJob } from '../../types/job';
 import { CourseService } from '../../services/course.service';
 import { PROGRESS_STEPS } from '../../types/job';
 import { updateJobProgress } from '../../utils/progress';
-import { imageGenerationQueue } from '../index';
-import { v4 as uuidv4 } from 'uuid';
 
 const courseService = new CourseService();
 
-export async function processCourseGeneration(job: Job<CourseGenerationJob>) {
-  const { userId, courseData, jobId } = job.data;
-  const { numTopics } = courseData;
+async function initializeProgress(jobId: string, userId: string, numTopics: number, totalImages: number) {
+  await updateJobProgress(jobId, {
+    jobId,
+    userId,
+    status: 'processing',
+    progress: PROGRESS_STEPS.INITIALIZING.progress,
+    currentStep: 'Starting course generation',
+    details: {
+      topicsCompleted: 0,
+      totalTopics: numTopics,
+      imagesCompleted: 0,
+      totalImages,
+      currentTopic: 'Initializing course structure...',
+    },
+  });
+}
 
-  if (!userId) {
-    throw new Error('Missing userId in job data');
-  }
+async function finalizeProgress(jobId: string, course: any, numTopics: number, totalImages: number) {
+  await updateJobProgress(jobId, {
+    progress: PROGRESS_STEPS.FINALIZING.progress,
+    currentStep: 'Finalizing course',
+    status: 'completed',
+    details: {
+      topicsCompleted: numTopics,
+      totalTopics: numTopics,
+      imagesCompleted: totalImages,
+      totalImages,
+      currentTopic: 'Course generation completed!',
+    },
+    result: course,
+  });
+}
 
+async function processTopics(
+  courseId: string,
+  topics: any[],
+  jobId: string,
+  numTopics: number
+) {
   let topicsCompleted = 0;
-  let imagesCompleted = 0;
-  const totalImages = numTopics * 2; // Thumbnail and banner for each topic
+
+  for (let i = 0; i < topics.length; i++) {
+    const topic = topics[i];
+    if (!topic || !topic.id) continue;
+
+    await updateJobProgress(jobId, {
+      progress:
+        PROGRESS_STEPS.CONTENT_GENERATION.TOPIC.progress +
+        ((i + 1) / numTopics) * PROGRESS_STEPS.CONTENT_GENERATION.TOPIC.increment,
+      currentStep: `Main Topic (${i + 1}/${numTopics})`,
+      details: {
+        topicsCompleted: i,
+        totalTopics: numTopics,
+        currentTopic: topic.title,
+      },
+    });
+
+    await courseService.generateTopicContent(courseId, topic.id, jobId);
+    topicsCompleted++;
+
+    if (topic.subtopics?.length) {
+      await processSubtopics(courseId, topic, jobId, topicsCompleted, numTopics);
+    }
+  }
+}
+
+async function processSubtopics(
+  courseId: string,
+  topic: any,
+  jobId: string,
+  topicsCompleted: number,
+  numTopics: number
+) {
+  for (let j = 0; j < topic.subtopics.length; j++) {
+    const subtopic = topic.subtopics[j];
+
+    await updateJobProgress(jobId, {
+      currentStep: `Generating subtopic content (${j + 1}/${topic.subtopics.length})`,
+      details: {
+        topicsCompleted,
+        totalTopics: numTopics,
+        currentTopic: topic.title,
+        currentSubtopic: subtopic.title,
+        subtopicsCompleted: j,
+        totalSubtopics: topic.subtopics.length,
+      },
+    });
+
+    await courseService.generateSubtopicContent(courseId, topic.id, subtopic.id,jobId);
+  }
+}
+
+export async function processCourseGeneration(
+  job: Job<CourseGenerationJob>
+): Promise<any> {
+  const { userId, courseData, jobId } = job.data;
+  const { numTopics, courseGenertionType } = courseData;
+
+  if (!userId) throw new Error('Missing userId in job data');
+
+  const totalImages = numTopics * 2;
 
   try {
-    console.time('Total Course Generation Time');
+    await initializeProgress(jobId, userId, numTopics, totalImages);
 
-    // Initialize job progress
-    console.time('Initialize Job Progress');
+    const course = await courseService.createCourse(userId, courseData, jobId);
+
+    if (courseGenertionType === 'partial') {
+      await finalizeProgress(jobId, course, numTopics, totalImages);
+      return course;
+    }
+
+    if (!course || !course._id) throw new Error('Failed to create course');
+
+    const courseId = course._id.toString();
+    const topics = course.topics || [];
+
+    await processTopics(courseId, topics, jobId, numTopics);
+
+    await finalizeProgress(jobId, course, numTopics, totalImages);
+
+    return course;
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
     await updateJobProgress(jobId, {
-      jobId,
-      userId,
-      status: 'processing',
-      progress: PROGRESS_STEPS.INITIALIZING.progress,
-      currentStep: 'Starting course generation',
+      status: 'failed',
+      error: errorMessage,
       details: {
         topicsCompleted: 0,
         totalTopics: numTopics,
         imagesCompleted: 0,
         totalImages,
-        currentTopic: 'Initializing course structure...',
-      },
-    });
-    console.timeEnd('Initialize Job Progress');
-
-    // Create course structure
-    console.time('Create Course Structure');
-    const course = await courseService.createCourse(userId, courseData);
-    console.timeEnd('Create Course Structure');
-
-    if (!course || !course._id) {
-      throw new Error('Failed to create course');
-    }
-
-    const courseId = course._id.toString();
-    const topics = course.topics || [];
-    console.log('Topics in course:', topics);
-
-    // Generate topics and content
-    for (let i = 0; i < topics.length; i++) {
-      const topic = topics[i];
-      if (!topic || !topic.id) continue;
-
-      console.time(`Generate Content for Topic ${i + 1}`);
-      console.log('Started working for topic:', topic);
-
-      // Update progress for current topic
-      console.time(`Update Progress for Topic ${i + 1}`);
-      await updateJobProgress(jobId, {
-        progress:
-          PROGRESS_STEPS.CONTENT_GENERATION.TOPIC.progress +
-          ((i + 1) / numTopics) * PROGRESS_STEPS.CONTENT_GENERATION.TOPIC.increment,
-        currentStep: 'Generating topic content',
-        details: {
-          topicsCompleted: i,
-          totalTopics: numTopics,
-          currentTopic: `Generating content for: ${topic.title}`,
-        },
-      });
-      console.timeEnd(`Update Progress for Topic ${i + 1}`);
-
-      // Generate topic content
-      console.time(`Topic Content Generation ${i + 1}`);
-      await courseService.generateTopicContent(courseId, topic.id);
-      console.timeEnd(`Topic Content Generation ${i + 1}`);
-
-      console.timeEnd(`Generate Content for Topic ${i + 1}`);
-      topicsCompleted++;
-    }
-
-    // Finalize course
-    console.time('Finalize Course');
-    await updateJobProgress(jobId, {
-      progress: PROGRESS_STEPS.FINALIZING.progress,
-      currentStep: 'Finalizing course',
-      status: 'completed',
-      details: {
-        topicsCompleted,
-        totalTopics: numTopics,
-        imagesCompleted,
-        totalImages,
-        currentTopic: 'Course generation completed!',
-      },
-      result: course,
-    });
-    console.timeEnd('Finalize Course');
-
-    console.timeEnd('Total Course Generation Time');
-    return course;
-  } catch (error) {
-    console.error('Error processing course generation:', error);
-
-    console.time('Update Progress for Failure');
-    await updateJobProgress(jobId, {
-      status: 'failed',
-      error: error.message,
-      details: {
-        topicsCompleted,
-        totalTopics: numTopics,
-        imagesCompleted,
-        totalImages,
         currentTopic: 'Generation failed',
       },
     });
-    console.timeEnd('Update Progress for Failure');
-
-    throw error;
+    throw err;
   }
 }

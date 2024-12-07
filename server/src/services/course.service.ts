@@ -4,44 +4,59 @@ import { CreateCourseData, UpdateCourseData } from '../types/course';
 import prisma from '../config/prisma';
 import geminiService from './gemini.service';
 import ImageService from './image.service';
-
+import { updateJobProgress } from '../utils/progress';
+import { TOPIC_GENERATION_STEPS } from '../types/job';
 
 export class CourseService {
   /**
-   * Creates a new course with topics, storing it in MongoDB and referencing it in MySQL.
-   * @param userId - ID of the user creating the course.
-   * @param data - Data for creating the course.
-   * @returns The created course document.
-   */
-  async createCourse(userId: string, data: CreateCourseData): Promise<ICourse> {
+ * Creates a new course with topics, storing it in MongoDB and referencing it in MySQL.
+ * @param userId - ID of the user creating the course.
+ * @param data - Data for creating the course.
+ * @returns The created course document.
+ */
+  async createCourse(userId: string, data: CreateCourseData, jobId: string): Promise<ICourse> {
     let mongoCourse: ICourse | null = null;
+    let description = '';
+    let thumbnail = '';
+    let banner = '';
 
     try {
-      const { description, thumbnail, banner } = await geminiService.generateMainCourseContent(data.description, data.title);
-
       const topics: any[] = [];
       for (let i = 0; i < data.numTopics; i++) {
-        const generatedTopic = await geminiService.generateCourseContentWithImages(
-          data,
-          i
-        );
-        topics.push(generatedTopic);
+        const generatedTopic = await geminiService.generateCoursePartially(data, jobId, i);
+        if (i == 0) {
+          description = generatedTopic.description
+          thumbnail = generatedTopic.thumbnail
+          banner = generatedTopic.banner
+        }
+
+        topics.push({
+          title: generatedTopic.title,
+          content: generatedTopic.content,
+          order: generatedTopic.order,
+          status: generatedTopic.status,
+          subtopics: generatedTopic.subtopics,
+          thumbnail: i === 0 ? generatedTopic.thumbnail : '',
+          banner: i === 0 ? generatedTopic.banner : '',
+        });
       }
+
       mongoCourse = await Course.create({
         userId,
         title: data.title,
-        description: description,
+        description,
         type: data.type,
         accessibility: data.accessibility,
         topics,
-        thumbnail: thumbnail,
-        banner: banner
+        thumbnail,
+        banner,
       });
 
       if (!mongoCourse._id) {
         throw new Error('MongoDB Course creation failed: Missing _id');
       }
 
+      // Reference course in MySQL
       await prisma.course.create({
         data: {
           title: data.title,
@@ -52,12 +67,16 @@ export class CourseService {
           mongoId: mongoCourse._id.toString(),
         },
       });
+
       return mongoCourse;
     } catch (error) {
+      // Rollback in MongoDB if MySQL insertion fails
       if (mongoCourse) {
         try {
           await Course.findByIdAndDelete(mongoCourse._id);
-        } catch { }
+        } catch {
+          // Suppress errors during rollback
+        }
       }
       throw error;
     }
@@ -146,64 +165,84 @@ export class CourseService {
    * @param topicId - ID of the topic to generate content for.
    * @returns The updated topic.
    */
-  async generateTopicContent(courseId: string, topicId: string): Promise<any> {
-    console.log('Passed courseId:', courseId);
-    console.log('Passed topicId:', topicId);
-
-    // Fetch the course
+  /**
+ * Generates and updates the content for a specific topic in a course.
+ * @param courseId - ID of the course containing the topic.
+ * @param topicId - ID of the topic to generate content for.
+ * @param jobId - Job ID for progress tracking.
+ * @returns The updated topic.
+ */
+  async generateTopicContent(courseId: string, topicId: string, jobId: string): Promise<any> {
     const course = await Course.findById(courseId);
     if (!course) throw new Error('Course not found');
 
-    console.log('Course topics:', course.topics.map(t => t.id));
-
-    // Find the topic by ID
-    const topic = course.topics.find((t) => String(t.id) === String(topicId));
+    const topic = course.topics.find((t) => t.id === topicId);
     if (!topic) throw new Error('Topic not found');
 
-    let generatedContent = null;
+    if (topic.status === 'complete') return topic;
 
-    // Check if topic status is incomplete
-    if (topic.status === 'incomplete') {
-      console.log('Topic status is incomplete. Generating content for the topic...');
-      generatedContent = await geminiService.generateTopicContent(courseId, topicId);
+    try {
+      const generatedContent = await geminiService.generateTopicContent(
+        courseId,
+        topicId,
+        jobId,
+        topic.title,
+        course.title
+      );
 
-      if (!generatedContent || !generatedContent.subtopics) {
-        throw new Error('Failed to generate content for topic or subtopics');
-      }
-
-      // Update topic-level content
-      topic.content = generatedContent.content || topic.content;
-      topic.thumbnail = generatedContent.thumbnail || topic.thumbnail;
-      topic.banner = generatedContent.banner || topic.banner;
-
-      // Update subtopics content
-      const subtopics = topic.subtopics ?? [];
-      generatedContent.subtopics.forEach((generatedSubtopic: any) => {
-        const subtopic = subtopics.find((s) => String(s.id) === String(generatedSubtopic.id));
-        if (subtopic) {
-          subtopic.status = generatedSubtopic.status;
-          subtopic.content = generatedSubtopic.content;
-        }
+      Object.assign(topic, {
+        content: generatedContent.content,
+        thumbnail: generatedContent.thumbnail,
+        banner: generatedContent.banner,
       });
 
-      // Mark topics as modified
+      if (topic.subtopics?.length) {
+        const totalSubtopics = topic.subtopics.length;
+        let subtopicsCompleted = 0;
+
+        for (const subtopic of topic.subtopics) {
+          if (subtopic.status === 'incomplete') {
+            await updateJobProgress(jobId, {
+              progress: TOPIC_GENERATION_STEPS.CONTENT_GENERATION.SUBTOPIC_CONTENT.progress,
+              currentStep: 'Generating subtopic content',
+              details: {
+                subtopicsCompleted,
+                totalSubtopics,
+                currentSubtopic: subtopic.title,
+              },
+            });
+
+            const generatedSubtopic = await geminiService.generateSubtopicContent(
+              courseId,
+              topicId,
+              subtopic.id,
+              jobId,
+            );
+
+            Object.assign(subtopic, {
+              content: generatedSubtopic.content,
+              thumbnail: generatedSubtopic.thumbnail,
+              banner: generatedSubtopic.banner,
+              status: 'complete',
+            });
+
+            subtopicsCompleted++;
+          }
+        }
+      }
+
+      if (topic.subtopics?.every((s) => s.status === 'complete')) {
+        topic.status = 'complete';
+      }
+
       course.markModified('topics');
-    } else {
-      console.log('Topic status is already complete. Checking subtopics...');
+      await course.save();
+
+      return topic;
+    } catch (error) {
+      console.error(`Error generating topic content for topicId ${topicId}:`, error);
+      throw new Error('Failed to generate topic content');
     }
-
-    // Check for incomplete subtopics
-    const incompleteSubtopics = topic.subtopics?.filter((s) => s.status === 'incomplete') || [];
-    if (incompleteSubtopics.length === 0) {
-      console.log('No incomplete subtopics found. Marking topic as complete.');
-      topic.status = 'complete';
-    }
-
-    // Save the course
-    await course.save();
-
-    // Return the updated topic
-    return topic;
   }
 
   /**
@@ -213,54 +252,37 @@ export class CourseService {
  * @param subtopicId - ID of the subtopic to generate content for.
  * @returns The updated subtopic.
  */
-  async generateSubtopicContent(courseId: string, topicId: string, subtopicId: string): Promise<any> {
-    console.log('Passed courseId:', courseId);
-    console.log('Passed topicId:', topicId);
-    console.log('Passed subtopicId:', subtopicId);
-
-    // Fetch the course
+  async generateSubtopicContent(courseId: string, topicId: string, subtopicId: string, jobId: string): Promise<any> {
     const course = await Course.findById(courseId);
     if (!course) throw new Error('Course not found');
 
-    console.log('Course topics:', course.topics.map(t => t.id));
-
-    // Find the topic by ID
     const topic = course.topics.find((t) => String(t.id) === String(topicId));
     if (!topic) throw new Error('Topic not found');
 
-    // Find the subtopic by ID
     const subtopic = topic.subtopics?.find((s) => String(s.id) === String(subtopicId));
     if (!subtopic) throw new Error('Subtopic not found');
 
     let generatedContent = null;
 
-    // Check if subtopic status is incomplete
     if (subtopic.status === 'incomplete') {
-      console.log('Subtopic status is incomplete. Generating content for the subtopic...');
-      generatedContent = await geminiService.generateSubtopicContent(courseId, topicId, subtopicId);
+      generatedContent = await geminiService.generateSubtopicContent(courseId, topicId, subtopicId, jobId);
 
       if (!generatedContent || !generatedContent.content) {
         throw new Error('Failed to generate content for the subtopic');
       }
 
-      // Update subtopic-level content
       subtopic.content = generatedContent.content || subtopic.content;
       subtopic.thumbnail = generatedContent.thumbnail || subtopic.thumbnail;
       subtopic.banner = generatedContent.banner || subtopic.banner;
 
-      // Mark subtopic as complete
       subtopic.status = 'complete';
 
-      // Mark topics as modified
       course.markModified('topics');
     } else {
       console.log('Subtopic status is already complete.');
     }
 
-    // Save the course
     await course.save();
-
-    // Return the updated subtopic
     return subtopic;
   }
 
@@ -274,33 +296,29 @@ export class CourseService {
       const unixTimestamp = Math.floor(Date.now() / 1000);
       const imageUrl = await ImageService.generateAndUploadImage(prompt, size, true, unixTimestamp);
       console.log('Test successful. Generated Image URL:', imageUrl);
-    } catch (error) {
-      console.error('Test failed:', error.message);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error('Test failed:', errorMessage);
     }
   }
+  /**
+ * Retrieves a specific subtopic by its ID.
+ * @param courseId - ID of the course.
+ * @param topicId - ID of the topic.
+ * @param subtopicId - ID of the subtopic.
+ * @returns The requested subtopic.
+ */
   async getSubtopicById(courseId: string, topicId: string, subtopicId: string) {
-    try {
-      const course = await Course.findById(courseId);
+    const course = await Course.findById(courseId);
+    if (!course) throw new Error('Course not found');
 
-      if (!course) {
-        throw new Error('Course not found');
-      }
+    const topic = course.topics.find((t) => t.id === topicId);
+    if (!topic) throw new Error('Topic not found');
 
-      const topic = course.topics.find((t) => t.id === topicId);
-      if (!topic) {
-        throw new Error('Topic not found');
-      }
+    const subtopic = topic.subtopics?.find((s) => s.id === subtopicId);
+    if (!subtopic) throw new Error('Subtopic not found');
 
-      const subtopic = topic.subtopics?.find((s) => s.id === subtopicId);
-      if (!subtopic) {
-        throw new Error('Subtopic not found');
-      }
-
-      return subtopic;
-    } catch (error) {
-      console.error('Error fetching subtopic:', error);
-      throw error;
-    }
+    return subtopic;
   }
 }
 

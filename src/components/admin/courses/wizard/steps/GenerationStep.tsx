@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import CourseProgress from '../../CourseProgress';
 import { useJobProgress } from '@/hooks/useJobProgress';
 import { Card, CardContent } from '@/components/ui/card';
+import AIRobotLoader from '@/components/ui/ai-robot-loader'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -88,7 +89,7 @@ export default function GenerationStep({
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+              <AIRobotLoader size="small" primaryColor="#3B82F6" secondaryColor="#2563EB" />
             </div>
             <div>
               <h3 className="text-lg font-semibold">Starting Generation</h3>
@@ -117,7 +118,7 @@ export default function GenerationStep({
               ) : progress.status === 'failed' ? (
                 <XCircle className="w-8 h-8 text-red-500" />
               ) : (
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                <AIRobotLoader size="small" primaryColor="#3B82F6" secondaryColor="#2563EB" />
               )}
             </div>
           </div>

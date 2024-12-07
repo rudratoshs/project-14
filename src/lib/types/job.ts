@@ -12,11 +12,15 @@ export interface JobProgress {
     totalImages?: number;
     currentTopic?: string;
     currentImage?: string;
+    subtopicsCompleted?: number;
+    totalSubtopics?: number;
+    currentSubtopic?: string;
   };
   error?: string;
   result?: {
     thumbnail?: string;
     banner?: string;
+    content?: string;
     [key: string]: any;
   };
 }
@@ -50,6 +54,72 @@ export const PROGRESS_STEPS = {
   },
   FINALIZING: {
     name: 'Finalizing',
+    progress: 100,
+  },
+};
+
+export const TOPIC_GENERATION_STEPS = {
+  INITIALIZING: {
+    name: 'Initializing Topic Generation',
+    progress: 0,
+  },
+  CONTENT_GENERATION: {
+    TOPIC_OVERVIEW: {
+      name: 'Generating Topic Overview',
+      progress: 20,
+    },
+    SUBTOPIC_CONTENT: {
+      name: 'Generating Subtopic Content',
+      progress: 50,
+    },
+  },
+  IMAGE_GENERATION: {
+    TOPIC_THUMBNAILS: {
+      name: 'Generating Topic Thumbnails',
+      progress: 70,
+    },
+    TOPIC_BANNERS: {
+      name: 'Generating Topic Banners',
+      progress: 80,
+    },
+    SUBTOPIC_IMAGES: {
+      name: 'Generating Subtopic Images',
+      progress: 90,
+    },
+  },
+  FINALIZING: {
+    name: 'Finalizing Topic Generation',
+    progress: 100,
+  },
+};
+
+export const SUBTOPIC_GENERATION_STEPS = {
+  INITIALIZING: {
+    name: 'Initializing Subtopic Generation',
+    progress: 0,
+  },
+  CONTENT_GENERATION: {
+    SUBTOPIC_OVERVIEW: {
+      name: 'Generating Subtopic Overview',
+      progress: 20,
+    },
+    SUBTOPIC_CONTENT: {
+      name: 'Generating Subtopic Detailed Content',
+      progress: 50,
+    },
+  },
+  IMAGE_GENERATION: {
+    SUBTOPIC_THUMBNAILS: {
+      name: 'Generating Subtopic Thumbnails',
+      progress: 70,
+    },
+    SUBTOPIC_BANNERS: {
+      name: 'Generating Subtopic Banners',
+      progress: 90,
+    },
+  },
+  FINALIZING: {
+    name: 'Finalizing Subtopic Generation',
     progress: 100,
   },
 };

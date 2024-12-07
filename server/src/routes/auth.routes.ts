@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import authController from '../controllers/auth.controller.js';
 import { verifyToken } from '../utils/jwt.js';
 import { PrismaClient } from '@prisma/client';
@@ -6,18 +6,24 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 const router = Router();
 
-router.post('/login', (req, res) => authController.login(req, res));
-router.post('/register', (req, res) => authController.register(req, res));
+// Login route
+router.post('/login', (req: Request, res: Response) => authController.login(req, res));
 
-// Ensure this route exists
-router.get('/me', async (req, res) => {
+// Register route
+router.post('/register', (req: Request, res: Response) => authController.register(req, res));
+
+// Get authenticated user info
+router.get('/me', async (req: Request, res: Response) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
+        const authHeader = req.headers.authorization;
+        const token = authHeader?.split(' ')[1];
+
         if (!token) {
-            return res.status(401).json({ message: 'Unauthorized: No token provided' });
+            return res.status(401).json({ message: 'Unauthorized: Token not provided' });
         }
 
         const decoded = verifyToken(token);
+
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
             include: { role: true },
@@ -29,7 +35,6 @@ router.get('/me', async (req, res) => {
 
         res.json({ user });
     } catch (error) {
-        console.error('Error fetching user:', error);
         res.status(401).json({ message: 'Unauthorized: Invalid token' });
     }
 });

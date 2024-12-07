@@ -38,6 +38,8 @@ const userSchema = z.object({
   subscriptionPlan: z.enum(['free', 'pro', 'enterprise']),
 });
 
+type FormData = z.infer<typeof userSchema>;
+
 interface UserDialogProps {
   user: User | null;
   open: boolean;
@@ -53,14 +55,14 @@ export default function UserDialog({
 }: UserDialogProps) {
   const { toast } = useToast();
   const { roles } = useRoles();
-  const form = useForm({
+  const form = useForm<FormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
       name: '',
       email: '',
       password: '',
       roleId: '',
-      subscriptionPlan: 'free' as const,
+      subscriptionPlan: 'free',
     },
   });
 
@@ -69,8 +71,9 @@ export default function UserDialog({
       form.reset({
         name: user.name,
         email: user.email,
+        password: '', // Reset password field since it isn't fetched
         roleId: user.roleId,
-        subscriptionPlan: user.subscriptionPlan,
+        subscriptionPlan: user.subscriptionPlan as 'free' | 'pro' | 'enterprise',
       });
     } else {
       form.reset({
@@ -83,7 +86,7 @@ export default function UserDialog({
     }
   }, [user, form]);
 
-  const onSubmit = async (data: z.infer<typeof userSchema>) => {
+  const onSubmit = async (data: FormData) => {
     try {
       if (user) {
         await updateUser(user.id, data);

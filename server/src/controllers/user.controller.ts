@@ -9,7 +9,12 @@ export class UserController {
     this.userService = new UserService();
   }
 
-  async getUsers(req: Request, res: Response) {
+  /**
+   * Fetches all users.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getUsers(req: Request, res: Response): Promise<void> {
     try {
       const users = await this.userService.findAll();
       res.json(users);
@@ -18,11 +23,17 @@ export class UserController {
     }
   }
 
-  async getUserById(req: Request, res: Response) {
+  /**
+   * Fetches a user by ID.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getUserById(req: Request, res: Response): Promise<void> {
     try {
       const user = await this.userService.findById(req.params.id);
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        res.status(404).json({ message: 'User not found' });
+        return;
       }
       res.json(user);
     } catch (error) {
@@ -30,31 +41,46 @@ export class UserController {
     }
   }
 
-  async createUser(req: Request, res: Response) {
+  /**
+   * Creates a new user.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async createUser(req: Request, res: Response): Promise<void> {
     try {
       const data: CreateUserData = req.body;
       const user = await this.userService.create(data);
       res.status(201).json(user);
     } catch (error) {
-      res.status(400).json({ 
-        message: error instanceof Error ? error.message : 'Failed to create user' 
+      res.status(400).json({
+        message: error instanceof Error ? error.message : 'Failed to create user',
       });
     }
   }
 
-  async updateUser(req: Request, res: Response) {
+  /**
+   * Updates a user by ID.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async updateUser(req: Request, res: Response): Promise<void> {
     try {
       const data: UpdateUserData = req.body;
       const user = await this.userService.update(req.params.id, data);
       res.json(user);
     } catch (error) {
-      res.status(400).json({ 
-        message: error instanceof Error ? error.message : 'Failed to update user' 
+      res.status(400).json({
+        message: error instanceof Error ? error.message : 'Failed to update user',
       });
     }
   }
 
-  async deleteUser(req: Request, res: Response) {
+  /**
+   * Deletes a user by ID.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async deleteUser(req: Request, res: Response): Promise<void> {
     try {
       await this.userService.delete(req.params.id);
       res.status(204).send();

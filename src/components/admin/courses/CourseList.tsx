@@ -46,6 +46,10 @@ export default function CourseList() {
     navigate(`/admin/courses/${course.id}`);
   };
 
+  const handleCreateClick = () => {
+    setShowCreateDialog(true);
+  };
+
   const exportCourses = () => {
     const headers = ['Title', 'Type', 'Accessibility', 'Topics', 'Created At'];
     const csvContent = [
@@ -112,6 +116,7 @@ export default function CourseList() {
         <CourseGrid
           courses={courses}
           onCourseClick={handleCourseClick}
+          onCreateClick={handleCreateClick}
         />
       )}
 

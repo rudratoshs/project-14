@@ -1,6 +1,5 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
-import { debounce } from 'lodash';
 import { Course, CreateCourseData, UpdateCourseData, Subtopic } from '../types/course';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -28,8 +27,6 @@ axios.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-const debounceApiCall = debounce((fn) => fn(), 500);
 
 export const getCourses = async (): Promise<Course[]> => {
   try {

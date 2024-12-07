@@ -47,8 +47,8 @@ export default function CourseProgress({ progress, className }: CourseProgressPr
             {Math.round(progress.progress)}%
           </span>
         </div>
-        <ProgressBar 
-          value={progress.progress} 
+        <ProgressBar
+          value={progress.progress}
           className={cn(
             "h-2 transition-colors duration-500",
             getProgressColor()
@@ -75,10 +75,41 @@ export default function CourseProgress({ progress, className }: CourseProgressPr
                       </span>
                     </div>
                     <ProgressBar
-                      value={(progress.details.topicsCompleted / progress.details.totalTopics) * 100}
+                      value={((progress.details.topicsCompleted ?? 0) / (progress.details.totalTopics ?? 1)) * 100}
                       className="h-1.5 bg-primary/20"
                     />
+
                   </div>
+                </div>
+              )}
+              {/* Subtopics Progress */}
+              {progress.details?.subtopicsCompleted !== undefined && (
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                    <BookOpen className="h-4 w-4 text-cyan-500" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium">Subtopics Progress</span>
+                      <span className="text-sm text-muted-foreground">
+                        {progress.details.subtopicsCompleted} / {progress.details.totalSubtopics}
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={((progress.details.subtopicsCompleted ?? 0) / (progress.details.totalSubtopics ?? 1)) * 100}
+                      className="h-1.5 bg-cyan-500/20"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Current Subtopic */}
+              {progress.details?.currentSubtopic && (
+                <div className="flex items-start gap-2">
+                  <div className="h-2 w-2 rounded-full bg-cyan-500 mt-2" />
+                  <p className="text-sm text-muted-foreground flex-1">
+                    {progress.details.currentSubtopic}
+                  </p>
                 </div>
               )}
 
@@ -96,7 +127,7 @@ export default function CourseProgress({ progress, className }: CourseProgressPr
                       </span>
                     </div>
                     <ProgressBar
-                      value={(progress.details.imagesCompleted / progress.details.totalImages) * 100}
+                      value={((progress.details.imagesCompleted ?? 0) / (progress.details.totalImages ?? 1)) * 100}
                       className="h-1.5 bg-purple-500/20"
                     />
                   </div>

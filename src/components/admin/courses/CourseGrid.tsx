@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -15,13 +14,15 @@ import { Course } from '@/lib/types/course';
 import { useJobProgress } from '@/hooks/useJobProgress';
 import { Search, Filter, BookOpen, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import CreateCourseCard from './CreateCourseCard';
 
 interface CourseGridProps {
   courses: Course[];
   onCourseClick: (course: Course) => void;
+  onCreateClick: () => void; // Add this prop
 }
 
-export default function CourseGrid({ courses, onCourseClick }: CourseGridProps) {
+export default function CourseGrid({ courses, onCourseClick ,onCreateClick}: CourseGridProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedAccessibility, setSelectedAccessibility] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export default function CourseGrid({ courses, onCourseClick }: CourseGridProps) 
     const matchesAccessibility = !selectedAccessibility || course.accessibility === selectedAccessibility;
     return matchesSearch && matchesType && matchesAccessibility;
   });
+  const displayedCourses = [{ isCreateCard: true }, ...filteredCourses];
 
   return (
     <div className="space-y-6">
@@ -82,22 +84,28 @@ export default function CourseGrid({ courses, onCourseClick }: CourseGridProps) 
           </Select>
         </div>
       </div>
-
+ 
       {/* Course Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {displayedCourses.map((course: any, index: number) => (
+          course.isCreateCard ? (
+            <CreateCourseCard key="create-course" onClick={onCreateClick}/>
+          ) : (
+            <CourseCard key={course.id} course={course} onClick={() => onCourseClick(course)} />
+          )
+        ))}
         {filteredCourses.map((course) => (
           <CourseCard key={course.id} course={course} onClick={() => onCourseClick(course)} />
         ))}
       </div>
-
       {/* Empty State */}
-      {filteredCourses.length === 0 && (
+      {/* {filteredCourses.length === 0 && (
         <div className="text-center py-12">
           <BookOpen className="h-12 w-12 mx-auto text-muted-foreground/50" />
           <h3 className="mt-4 text-lg font-semibold">No Courses Found</h3>
           <p className="text-muted-foreground">Try adjusting your search or filters</p>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

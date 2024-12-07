@@ -14,7 +14,7 @@ export interface User {
 export interface CreateUserData {
   name: string;
   email: string;
-  password: string;
+  password?: string;
   roleId: string;
   subscriptionPlan?: string;
 }

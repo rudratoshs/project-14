@@ -1,5 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+/**
+ * Interface defining the structure of a Course document.
+ */
 export interface ICourse extends Document {
   title: string;
   description: string;
@@ -31,6 +34,7 @@ export interface ICourse extends Document {
   updatedAt: Date;
 }
 
+// Define the schema for the Course model
 const CourseSchema = new Schema<ICourse>(
   {
     title: { type: String, required: true },
@@ -89,32 +93,32 @@ const CourseSchema = new Schema<ICourse>(
   { timestamps: true }
 );
 
-// Add virtual for full thumbnail URL
-CourseSchema.virtual('thumbnailUrl').get(function() {
-  console.log('thumbnailad',this.thumbnail)
+// Virtual property to generate the full URL for the thumbnail
+CourseSchema.virtual('thumbnailUrl').get(function () {
   if (!this.thumbnail) return null;
   const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
   return `${baseUrl}${this.thumbnail}`;
 });
 
-// Add virtual for full banner URL
-CourseSchema.virtual('bannerUrl').get(function() {
+// Virtual property to generate the full URL for the banner
+CourseSchema.virtual('bannerUrl').get(function () {
   if (!this.banner) return null;
   const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
   return `${baseUrl}${this.banner}`;
 });
 
-// Ensure virtuals are included in JSON
+// Ensure virtual properties are included in JSON responses
 CourseSchema.set('toJSON', {
   virtuals: true,
-  transform: function(doc, ret) {
-    ret.id = ret._id;
+  transform: function (doc, ret) {
+    ret.id = ret._id; // Replace `_id` with `id`
     delete ret._id;
     delete ret.__v;
     return ret;
-  }
+  },
 });
 
+// Create and export the Course model
 const Course = mongoose.model<ICourse>('Course', CourseSchema);
 
 export default Course;

@@ -37,6 +37,10 @@ export class UserService {
   }
 
   async create(data: CreateUserData) {
+    if (!data.password) {
+      throw new Error('Password is required for creating a user');
+    }
+
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email }
     });
@@ -81,7 +85,11 @@ export class UserService {
     }
 
     const updateData: any = { ...data };
+
     if (data.password) {
+      if (typeof data.password !== 'string') {
+        throw new Error('Password must be a string');
+      }
       updateData.password = await bcrypt.hash(data.password, 10);
     }
 

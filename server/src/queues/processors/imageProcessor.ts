@@ -4,7 +4,12 @@ import ImageService from '../../services/image.service';
 import { PROGRESS_STEPS } from '../../types/job';
 import { updateJobProgress } from '../../utils/progress';
 
-export async function processImageGeneration(job: Job<ImageGenerationJob>) {
+/**
+ * Processes an image generation job.
+ * @param job - Bull Job object containing the data for image generation.
+ * @returns A promise that resolves to the generated image URL.
+ */
+export async function processImageGeneration(job: Job<ImageGenerationJob>): Promise<string> {
   const { prompt, size, courseId, jobId } = job.data;
 
   try {
@@ -20,7 +25,7 @@ export async function processImageGeneration(job: Job<ImageGenerationJob>) {
       }
     });
 
-    // Generate and upload image
+    // Generate and upload the image
     const imageUrl = await ImageService.generateAndUploadImage(
       prompt,
       size,
@@ -28,7 +33,7 @@ export async function processImageGeneration(job: Job<ImageGenerationJob>) {
       parseInt(courseId)
     );
 
-    // Update progress
+    // Mark job as completed with the result
     await updateJobProgress(jobId, {
       progress: 100,
       currentStep: 'Image generation completed',
@@ -38,9 +43,11 @@ export async function processImageGeneration(job: Job<ImageGenerationJob>) {
 
     return imageUrl;
   } catch (error) {
+    // Handle errors and update job status
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     await updateJobProgress(jobId, {
       status: 'failed',
-      error: error.message
+      error: errorMessage
     });
     throw error;
   }

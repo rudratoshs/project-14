@@ -12,223 +12,241 @@ export class CourseController {
     this.courseService = new CourseService();
   }
 
-  async createCourse(req: Request, res: Response) {
+  /**
+   * Creates a new course and starts a background job for generation.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async createCourse(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: CreateCourseData = req.body;
+      const data: CreateCourseData = req.body; 
 
-      // Validate required fields
       if (!data.title?.trim()) {
-        return res.status(400).json({ message: 'Title is required' });
+        res.status(400).json({ message: 'Title is required' });
+        return;
       }
 
       if (!data.description?.trim()) {
-        return res.status(400).json({ message: 'Description is required' });
+        res.status(400).json({ message: 'Description is required' });
+        return;
       }
 
-      // Generate a unique job ID
       const jobId = uuidv4();
 
-      // Create initial job progress
       await JobProgress.create({
         jobId,
         userId,
         status: 'pending',
         progress: 0,
-        currentStep: 'Initializing'
+        currentStep: 'Initializing',
       });
 
-      // Add job to queue
       await courseGenerationQueue.add({
         userId,
         courseData: data,
-        jobId
+        jobId,
       });
 
-      // Return the job ID immediately
       res.status(202).json({
         message: 'Course generation started',
-        jobId
+        jobId,
       });
     } catch (error) {
-      console.error('Create course error:', error);
       res.status(400).json({
         message: error instanceof Error ? error.message : 'Failed to create course',
       });
     }
   }
 
-  async getJobStatus(req: Request, res: Response) {
+  /**
+   * Retrieves the progress of a specific job.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getJobStatus(req: Request, res: Response): Promise<void> {
     try {
       const { jobId } = req.params;
-      console.log('Fetching job status for:', jobId);
 
       const jobProgress = await JobProgress.findOne({ jobId }).lean();
 
       if (!jobProgress) {
-        console.log('Job not found:', jobId);
-        return res.status(404).json({ message: 'Job not found' });
+        res.status(404).json({ message: 'Job not found' });
+        return;
       }
 
-      console.log('Found job progress:', jobProgress);
       res.json(jobProgress);
     } catch (error) {
-      console.error('Error fetching job status:', error);
       res.status(500).json({
         message: error instanceof Error ? error.message : 'Failed to fetch job status',
       });
     }
   }
-
-
-  async previewCourse(req: Request, res: Response) {
+  /**
+   * Generates a preview of a course based on the provided data.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async previewCourse(req: Request, res: Response): Promise<void> {
     try {
       const data: CreateCourseData = req.body;
       const preview = await this.courseService.previewCourse(data);
       res.json(preview);
     } catch (error) {
-      console.error('Preview course error:', error);
       res.status(400).json({
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to generate course preview',
+        message: error instanceof Error ? error.message : 'Failed to generate course preview',
       });
     }
   }
 
-  async getUserCourses(req: Request, res: Response) {
+  /**
+   * Retrieves courses belonging to the current user.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getUserCourses(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
       const courses = await this.courseService.getUserCourses(userId);
       res.json(courses);
     } catch (error) {
       res.status(500).json({
-        message:
-          error instanceof Error ? error.message : 'Failed to fetch courses',
+        message: error instanceof Error ? error.message : 'Failed to fetch courses',
       });
     }
   }
 
-  async getCourseById(req: Request, res: Response) {
+  /**
+   * Retrieves a course by its ID.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getCourseById(req: Request, res: Response): Promise<void> {
     try {
       const course = await this.courseService.getCourseById(req.params.id);
       if (!course) {
-        return res.status(404).json({ message: 'Course not found' });
+        res.status(404).json({ message: 'Course not found' });
+        return;
       }
       res.json(course);
     } catch (error) {
       res.status(500).json({
-        message:
-          error instanceof Error ? error.message : 'Failed to fetch course',
+        message: error instanceof Error ? error.message : 'Failed to fetch course',
       });
     }
   }
 
-  async updateCourse(req: Request, res: Response) {
+  /**
+   * Updates an existing course with the provided data.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async updateCourse(req: Request, res: Response): Promise<void> {
     try {
       const data: UpdateCourseData = req.body;
       const course = await this.courseService.updateCourse(req.params.id, data);
       if (!course) {
-        return res.status(404).json({ message: 'Course not found' });
+        res.status(404).json({ message: 'Course not found' });
+        return;
       }
       res.json(course);
     } catch (error) {
       res.status(400).json({
-        message:
-          error instanceof Error ? error.message : 'Failed to update course',
+        message: error instanceof Error ? error.message : 'Failed to update course',
       });
     }
   }
 
-  async deleteCourse(req: Request, res: Response) {
+  /**
+   * Deletes a course by its ID for the current user.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async deleteCourse(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
       await this.courseService.deleteCourse(userId, req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({
-        message:
-          error instanceof Error ? error.message : 'Failed to delete course',
+        message: error instanceof Error ? error.message : 'Failed to delete course',
       });
     }
   }
 
-  async generateTopicContent(req: Request, res: Response) {
+  /**
+ * Initiates the generation of content for a specific topic.
+ * @param req Express Request object
+ * @param res Express Response object
+ */
+  async generateTopicContent(req: Request, res: Response): Promise<void> {
     try {
       const { courseId, topicId } = req.params;
-
-      // Generate a unique job ID
       const jobId = uuidv4();
 
-      // Add job to queue
       await topicGenerationQueue.add({
         courseId,
         topicId,
-        jobId
+        jobId,
       });
-      console.log('Topic generation started', jobId)
-      // Return the job ID immediately
+
       res.status(202).json({
         message: 'Topic generation started',
-        jobId
+        jobId,
       });
     } catch (error) {
-      console.error('Generate topic content error:', error);
       res.status(400).json({
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to generate topic content',
+        message: error instanceof Error ? error.message : 'Failed to generate topic content',
       });
     }
   }
 
-  async generateSubtopicContent(req: Request, res: Response) {
+  /**
+   * Initiates the generation of content for a specific subtopic.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async generateSubtopicContent(req: Request, res: Response): Promise<void> {
     try {
       const { courseId, topicId, subtopicId } = req.params;
-
-      // Generate a unique job ID
       const jobId = uuidv4();
 
-      // Add job to queue
-      const job = await subtopicGenerationQueue.add({
+      await subtopicGenerationQueue.add({
         courseId,
         topicId,
         subtopicId,
-        jobId
+        jobId,
       });
-      console.log('Job added to the queue:', { jobId, job });
-      // Return the job ID immediately
+
       res.status(202).json({
         message: 'Subtopic generation started',
-        jobId
+        jobId,
       });
     } catch (error) {
-      console.error('Generate subtopic content error:', error);
       res.status(400).json({
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to generate subtopic content',
+        message: error instanceof Error ? error.message : 'Failed to generate subtopic content',
       });
     }
   }
 
-  async getSubtopicById(req: Request, res: Response) {
+  /**
+   * Retrieves details of a specific subtopic by ID.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getSubtopicById(req: Request, res: Response): Promise<void> {
     try {
       const { courseId, topicId, subtopicId } = req.params;
 
-      // Fetch the subtopic data from the service
       const subtopic = await this.courseService.getSubtopicById(courseId, topicId, subtopicId);
 
       if (!subtopic) {
-        return res.status(404).json({ message: 'Subtopic not found' });
+        res.status(404).json({ message: 'Subtopic not found' });
+        return;
       }
 
       res.json(subtopic);
     } catch (error) {
-      console.error('Get subtopic error:', error);
       res.status(500).json({
         message: error instanceof Error ? error.message : 'Failed to fetch subtopic',
       });

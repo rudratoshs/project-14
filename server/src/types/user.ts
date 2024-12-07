@@ -11,7 +11,7 @@ export interface UserWithRole extends User {
 export interface CreateUserData {
   name: string;
   email: string;
-  password: string;
+  password?: string;
   roleId: string;
 }
 

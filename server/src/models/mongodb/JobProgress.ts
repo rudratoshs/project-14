@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, CallbackError } from 'mongoose';
 
 export interface IJobProgress extends Document {
   jobId: string;
@@ -31,35 +31,35 @@ export interface IJobProgress extends Document {
 
 const JobProgressSchema = new Schema<IJobProgress>(
   {
-    jobId: { 
-      type: String, 
+    jobId: {
+      type: String,
       required: true,
       unique: true,
-      index: true 
+      index: true,
     },
-    userId: { 
-      type: String, 
+    userId: {
+      type: String,
       required: true,
-      index: true 
+      index: true,
     },
     status: {
       type: String,
       enum: ['pending', 'processing', 'completed', 'failed'],
       default: 'pending',
-      index: true
+      index: true,
     },
-    progress: { 
-      type: Number, 
+    progress: {
+      type: Number,
       default: 0,
       min: 0,
-      max: 100
+      max: 100,
     },
-    currentStep: { 
-      type: String, 
-      default: 'Initializing' 
+    currentStep: {
+      type: String,
+      default: 'Initializing',
     },
-    subStep: { 
-      type: String 
+    subStep: {
+      type: String,
     },
     details: {
       topicsCompleted: { type: Number },
@@ -70,37 +70,35 @@ const JobProgressSchema = new Schema<IJobProgress>(
       currentImage: { type: String },
       subtopicsCompleted: { type: Number },
       totalSubtopics: { type: Number },
-      currentSubtopic: { type: String }
+      currentSubtopic: { type: String },
     },
     error: { type: String },
-    result: { type: Schema.Types.Mixed }
+    result: { type: Schema.Types.Mixed },
   },
-  { 
+  {
     timestamps: true,
-    storeSubdocValidationError: false
+    storeSubdocValidationError: false,
   }
 );
 
-// Add this to handle duplicate key errors gracefully
-JobProgressSchema.pre('save', async function(next) {
+// Pre-save hook to handle duplicate jobId gracefully
+JobProgressSchema.pre<IJobProgress>('save', async function (next: (err?: CallbackError) => void) {
   try {
     if (this.isNew) {
-      // Check if a document with this jobId already exists
-      const existing = await this.constructor.findOne({ jobId: this.jobId });
-      if (existing) {
-        // If exists, update it instead of creating new
-        Object.assign(existing, this.toObject());
-        await existing.save();
+      const existingDoc = await mongoose.model<IJobProgress>('JobProgress').findOne({ jobId: this.jobId });
+      if (existingDoc) {
+        Object.assign(existingDoc, this.toObject());
+        await existingDoc.save();
         return next(new Error('Duplicate jobId - updated existing document'));
       }
     }
     next();
   } catch (error) {
-    next(error);
+    next(error as CallbackError);
   }
 });
 
-// Add indexes for better query performance
+// Indexes for better query performance
 JobProgressSchema.index({ jobId: 1 }, { unique: true });
 JobProgressSchema.index({ userId: 1 });
 JobProgressSchema.index({ status: 1 });

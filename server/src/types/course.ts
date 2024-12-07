@@ -7,6 +7,7 @@ export interface CreateCourseData {
   subtopics?: string[];
   thumbnail?: string;
   banner?: string;
+  courseGenertionType?:'partial' | 'full';
 }
 
 export interface UpdateCourseData {

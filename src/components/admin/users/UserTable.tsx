@@ -7,8 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Edit, Trash2 } from 'lucide-react';
 import { User } from '@/lib/types/user';
 import { useToast } from '@/components/ui/use-toast';
 import { deleteUser } from '@/lib/api/users';

@@ -32,8 +32,9 @@ export class ImageService {
             const encodedPrompt = encodeURIComponent(prompt);
             const imageUrl = `${this.pollinationsUrl}${encodedPrompt}?width=${width}&height=${height}`;
             return imageUrl; // Return Pollinations-generated image URL
-        } catch (error) {
-            console.error('Error generating image:', error.message);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            console.error('Error generating image:', errorMessage);
             throw new Error('Failed to generate image.');
         }
     }
@@ -58,8 +59,9 @@ export class ImageService {
             } else {
                 throw new Error('Invalid ImgBB response');
             }
-        } catch (error) {
-            console.error('Error uploading to ImgBB:', error.message);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            console.error('Error uploading to ImgBB:', errorMessage);
             throw new Error('Failed to upload image.');
         }
     }
@@ -90,8 +92,9 @@ export class ImageService {
             const accessibleUrl = `${baseUrl}/${courseId}/${imageName}`;
 
             return accessibleUrl; // Return the accessible URL
-        } catch (error) {
-            console.error('Error storing image locally:', error.message);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            console.error('Error storing image locally:', errorMessage);
             throw new Error('Failed to store image locally.');
         }
     }
@@ -134,8 +137,9 @@ export class ImageService {
                 // Upload to ImgBB
                 return await this.uploadToImgBB(imageBuffer);
             }
-        } catch (error) {
-            console.error('Error in generateAndUploadImage:', error.message);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            console.error('Error in generateAndUploadImage:', errorMessage);
             throw new Error('Failed to generate and upload/store image.');
         }
     }

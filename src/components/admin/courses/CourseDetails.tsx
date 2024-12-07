@@ -6,7 +6,6 @@ import {
     Clock,
     GraduationCap,
     ChevronRight,
-    ChevronDown,
     Image as ImageIcon,
     Video,
     Lock,
@@ -16,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProgressBar } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     Accordion,
@@ -28,7 +26,7 @@ import { Course, Topic, Subtopic } from '@/lib/types/course';
 import { getCourse } from '@/lib/api/courses';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { CopyBlock, dracula, CodeBlock } from "react-code-blocks";
+import { CopyBlock, dracula } from "react-code-blocks";
 import { generateTopicContent, generateSubtopicContent, getSubtopic } from '@/lib/api/courses';
 import CourseProgress from './CourseProgress';
 import { useJobProgress } from '@/hooks/useJobProgress';
@@ -57,30 +55,30 @@ export default function CourseDetails() {
                     selectedTopic?.id || '',
                     generatingSubtopicId
                 );
-    
+
                 if (updatedSubtopic) {
                     setCourse((prevCourse) => {
                         if (!prevCourse) return null;
-    
+
                         const updatedTopics = prevCourse.topics.map((topic) =>
                             topic.id === selectedTopic?.id
                                 ? {
-                                      ...topic,
-                                      subtopics: topic.subtopics?.map((sub) =>
-                                          sub.id === generatingSubtopicId ? updatedSubtopic : sub
-                                      ),
-                                  }
+                                    ...topic,
+                                    subtopics: topic.subtopics?.map((sub) =>
+                                        sub.id === generatingSubtopicId ? updatedSubtopic : sub
+                                    ),
+                                }
                                 : topic
                         );
-    
+
                         return { ...prevCourse, topics: updatedTopics };
                     });
-    
+
                     // Clear generatingSubtopicId to indicate completion
                     setGeneratingSubtopicId(null);
                 }
             };
-    
+
             updateSubtopic();
         }
     }, [progress?.status, generatingSubtopicId, course?.id, selectedTopic?.id]);
@@ -126,22 +124,55 @@ export default function CourseDetails() {
         }
     };
 
-    const formatContent = (content: string) => {
-        // Split content into sections
-        const sections = content.split('\n\n');
+    const decodeHTML = (html: string) => {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = html;
+        return textarea.value;
+    };
 
-        return sections.map((section, index) => {
+    const formatContent = (content: string) => {
+        console.log("Original Content:", content);
+
+        // Decode any HTML entities
+        const decodedContent = decodeHTML(content);
+
+        // Adjust formatting to handle class attributes in <code> tags
+        const sanitizedContent = decodedContent
+            .replace(/<pre>\s*<code[^>]*>/g, "<pre><code>") // Normalize <pre><code>
+            .replace(/<\/code>\s*<\/pre>/g, "</code></pre>"); // Normalize </code></pre>
+
+        // Match and separate content by code blocks and other elements
+        const regex = /(<pre><code[^>]*>[\s\S]*?<\/code><\/pre>)|([^<]+)/g; // Capture content inside and outside HTML tags
+        const matches = [...sanitizedContent.matchAll(regex)];
+
+        console.log("Split Sections:", matches);
+
+        // Filter out empty or invalid sections
+        const validSections = matches.filter(([fullMatch]) => fullMatch.trim());
+
+        return validSections.map((match, index) => {
+            const [fullMatch, codeBlock, otherContent] = match;
+
             // Handle code blocks
-            if (section.includes('<pre><code>')) {
-                const code = section
-                    .match(/<pre><code>([\s\S]+?)<\/code><\/pre>/)?.[1]
-                    ?.trim();
-                if (code) {
+            if (codeBlock) {
+                console.log(`Section ${index} identified as Code Block`);
+                const codeMatch = codeBlock.match(/^<pre><code[^>]*>([\s\S]+)<\/code><\/pre>$/);
+
+                if (codeMatch) {
+                    const code = codeMatch[1].trim();
+
+                    // Extract language class if present
+                    const languageMatch = codeBlock.match(/class="language-([a-zA-Z0-9]+)"/);
+                    const language = languageMatch ? languageMatch[1] : "plaintext";
+
+                    console.log(`Code Content for Section ${index}:`, code);
+                    console.log(`Detected Language: ${language}`);
+
                     return (
                         <div key={index} className="my-6">
                             <CopyBlock
-                                text={code.trim()}
-                                language="javascript"
+                                text={code}
+                                language={language}
                                 theme={dracula}
                                 showLineNumbers={true}
                             />
@@ -150,66 +181,72 @@ export default function CourseDetails() {
                 }
             }
 
-            // Handle lists
-            if (section.match(/^\s*[\-\*]\s/m) || section.match(/^\*\*/)) {
-                // Split into lines for processing as list
-                const items = section.split(/\n/).map(item => {
-                    // Handle bold syntax for list items
-                    const formattedItem = item
-                        .replace(/^\s*[\-\*]\s/, '') // Remove list markers (- or *)
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>') // Handle bold syntax
-                        .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-900 font-mono text-sm">$1</code>'); // Handle inline code
-                    return formattedItem;
-                });
+            // Handle other content
+            if (otherContent && otherContent.trim()) {
+                console.log(`Processing Section ${index}:`, otherContent);
+
+                // Handle headings
+                if (/^(#+)\s(.*)$/.test(otherContent.trim())) {
+                    const [, level, text] = otherContent.match(/^(#+)\s(.*)$/) || [];
+                    if (level && text) {
+                        const HeadingTag = `h${level.length}` as keyof JSX.IntrinsicElements;
+                        const headingClasses = {
+                            h1: "text-3xl font-bold text-gray-900 mb-4",
+                            h2: "text-2xl font-semibold text-gray-900 mb-3",
+                            h3: "text-xl font-semibold text-gray-900 mb-2",
+                            h4: "text-lg font-medium text-gray-900 mb-2",
+                        };
+
+                        return (
+                            <HeadingTag
+                                key={index}
+                                className={headingClasses[HeadingTag] || "text-base font-medium text-gray-900 mb-2"}
+                            >
+                                {text.trim()}
+                            </HeadingTag>
+                        );
+                    }
+                }
+
+                // Handle lists
+                if (/^\s*[-*]\s/m.test(otherContent.trim()) || /^\d+\.\s/m.test(otherContent.trim())) {
+                    const items = otherContent.split(/\n/).filter(Boolean).map((item) =>
+                        item
+                            .replace(/^\s*[-*]\s/, "") // Remove unordered list markers
+                            .replace(/^\d+\.\s/, "") // Remove ordered list markers
+                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
+                            .replace(/`([^`]+)`/g, "<code>$1</code>") // Inline code
+                    );
+
+                    return (
+                        <ul key={index} className="my-4 space-y-2">
+                            {items.map((item, i) => (
+                                <li key={i} className="flex items-start">
+                                    <span
+                                        className="text-gray-700"
+                                        dangerouslySetInnerHTML={{ __html: item }}
+                                    />
+                                </li>
+                            ))}
+                        </ul>
+                    );
+                }
+
+                // Handle bold text and inline code in paragraphs
+                const formattedText = otherContent
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
+                    .replace(/`([^`]+)`/g, "<code>$1</code>"); // Inline code
 
                 return (
-                    <ul key={index} className="my-4 space-y-2">
-                        {items.map((item, i) => (
-                            <li key={i} className="flex items-start">
-                                <span className="mr-2 mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
-                                <span
-                                    className="text-gray-700"
-                                    dangerouslySetInnerHTML={{ __html: item }}
-                                />
-                            </li>
-                        ))}
-                    </ul>
+                    <p
+                        key={index}
+                        className="my-4 text-gray-700 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: formattedText }}
+                    />
                 );
             }
 
-            // Handle bold text and inline code
-            const formattedText = section
-                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
-                .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-900 font-mono text-sm">$1</code>');
-
-            // Handle headings
-            if (section.startsWith('#')) {
-                const [, level, text] = section.match(/^(#+)\s+(.*)$/m) || [];
-                if (level && text) {
-                    const HeadingTag = `h${level.length}` as keyof JSX.IntrinsicElements;
-                    const headingClasses = {
-                        h1: 'text-3xl font-bold text-gray-900 mb-4',
-                        h2: 'text-2xl font-semibold text-gray-900 mb-3',
-                        h3: 'text-xl font-semibold text-gray-900 mb-2',
-                        h4: 'text-lg font-medium text-gray-900 mb-2',
-                    }[HeadingTag] || 'text-base font-medium text-gray-900 mb-2';
-
-                    return (
-                        <HeadingTag key={index} className={headingClasses}>
-                            {text}
-                        </HeadingTag>
-                    );
-                }
-            }
-
-            // Regular paragraph
-            return (
-                <p
-                    key={index}
-                    className="my-4 text-gray-700 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: formattedText }}
-                />
-            );
+            return null;
         });
     };
 
@@ -284,11 +321,6 @@ export default function CourseDetails() {
 
     const completedTopics = course.topics.filter(t => t.status === 'complete').length;
     const topicProgress = (completedTopics / course.topics.length) * 100;
-
-    const handleTopicClick = (topic: Topic) => {
-        setSelectedTopic(topic);
-        setSelectedSubtopic(null);
-    };
 
     const handleSubtopicClick = (subtopic: Subtopic) => {
         setSelectedSubtopic(subtopic);

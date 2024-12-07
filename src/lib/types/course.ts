@@ -41,6 +41,7 @@ export interface CreateCourseData {
   accessibility: 'free' | 'paid' | 'limited';
   numTopics: number;
   subtopics?: string[];
+  courseGenertionType?:'partial' | 'full';
 }
 
 export interface UpdateCourseData {

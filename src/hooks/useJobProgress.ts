@@ -54,7 +54,7 @@ export function useJobProgress(jobId: string | null) {
 
     // Handle reconnection
     socketInstance.on('reconnect', () => {
-      console.log('Socket reconnected');
+      console.log('Socket reconnected',socket);
       socketInstance.emit('subscribeToJob', jobId);
     });
 

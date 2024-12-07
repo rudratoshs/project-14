@@ -8,24 +8,42 @@ export class PermissionController {
     this.permissionService = new PermissionService();
   }
 
-  async getPermissions(req: Request, res: Response) {
+  /**
+   * Fetches all permissions.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getPermissions(req: Request, res: Response): Promise<void> {
     try {
       const permissions = await this.permissionService.findAll();
       res.json(permissions);
     } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch permissions' });
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Failed to fetch permissions',
+      });
     }
   }
 
-  async getPermissionById(req: Request, res: Response) {
+  /**
+   * Fetches a specific permission by ID.
+   * @param req Express Request object
+   * @param res Express Response object
+   */
+  async getPermissionById(req: Request, res: Response): Promise<void> {
     try {
-      const permission = await this.permissionService.findById(req.params.id);
+      const { id } = req.params;
+      const permission = await this.permissionService.findById(id);
+
       if (!permission) {
-        return res.status(404).json({ message: 'Permission not found' });
+        res.status(404).json({ message: 'Permission not found' });
+        return;
       }
+
       res.json(permission);
     } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch permission' });
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Failed to fetch permission',
+      });
     }
   }
 }

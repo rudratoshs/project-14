@@ -1,13 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Eye, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye } from 'lucide-react';
 import BasicInfoStep from './steps/BasicInfoStep';
 import TopicsStep from './steps/TopicsStep';
 import PreviewStep from './steps/PreviewStep';
 import GenerationStep from './steps/GenerationStep';
 import { CreateCourseData } from '@/lib/types/course';
-import { useJobProgress } from '@/hooks/useJobProgress';
 import { cn } from '@/lib/utils';
 
 interface CourseWizardProps {
@@ -32,7 +31,6 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
   });
   const [jobId, setJobId] = useState<string | null>(null);
   const [isValid, setIsValid] = useState(false);
-  const { progress } = useJobProgress(jobId);
 
   const handleNext = () => {
     setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
@@ -49,6 +47,19 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
   const handleValidationChange = useCallback((valid: boolean) => {
     setIsValid(valid);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setCurrentStep(0);
+      setCourseData({
+        type: 'image_theory',
+        accessibility: 'free',
+        numTopics: 5,
+      });
+      setJobId(null);
+      setIsValid(false);
+    }
+  }, [open]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -91,13 +102,10 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
 
   return (
     <DialogContent className="max-w-3xl p-0 flex flex-col h-[90vh]">
-      {/* Fixed Header */}
       <div className="flex-none">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Create New Course</DialogTitle>
         </DialogHeader>
-
-        {/* Progress Steps */}
         <div className="px-6 py-4 border-b bg-white">
           <div className="flex justify-between">
             {STEPS.map((step, index) => (
@@ -108,10 +116,10 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
               >
                 <div
                   className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors",
+                    'w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors',
                     index <= currentStep
-                      ? "bg-primary text-white"
-                      : "bg-gray-200 text-gray-500"
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-500'
                   )}
                 >
                   {index + 1}
@@ -130,15 +138,9 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
           </div>
         </div>
       </div>
-
-      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          {renderStep()}
-        </div>
+        <div className="p-6">{renderStep()}</div>
       </div>
-
-      {/* Fixed Footer */}
       {currentStep < STEPS.length - 1 && currentStep !== 2 && (
         <div className="flex-none border-t bg-white p-6">
           <div className="flex justify-between">
@@ -150,17 +152,17 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <Button 
+            <Button
               onClick={handleNext}
               disabled={!isValid}
               className={cn(
-                !isValid && "opacity-50 cursor-not-allowed"
+                !isValid && 'opacity-50 cursor-not-allowed'
               )}
             >
               {currentStep === 1 ? (
                 <>
                   Preview
-                  <Eye className="ml-2 h-4 w-4" />
+                  <Eye className={`ml-2 h-4 w-4 ${jobId}`} />
                 </>
               ) : (
                 <>

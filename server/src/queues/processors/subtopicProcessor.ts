@@ -6,67 +6,72 @@ import { updateJobProgress } from '../../utils/progress';
 
 const courseService = new CourseService();
 
-export async function processSubtopicGeneration(job: Job<SubtopicGenerationJob>) {
+/**
+ * Updates the job progress for a given step.
+ * @param jobId - The job ID.
+ * @param step - The current step of the subtopic generation process.
+ * @param details - Additional details for the job progress.
+ */
+async function updateProgress(jobId: string, step: any, details?: Record<string, any>) {
+    await updateJobProgress(jobId, {
+        progress: step.progress,
+        currentStep: step.name,
+        ...details,
+    });
+}
+
+/**
+ * Processes the subtopic content generation.
+ * @param courseId - The course ID.
+ * @param topicId - The topic ID.
+ * @param subtopicId - The subtopic ID.
+ * @returns The updated subtopic object.
+ */
+async function generateSubtopic(courseId: string, topicId: string, subtopicId: string,jobId: string): Promise<any> {
+    return courseService.generateSubtopicContent(courseId, topicId, subtopicId,jobId);
+}
+
+/**
+ * Handles the completion of the subtopic generation process.
+ * @param jobId - The job ID.
+ * @param subtopic - The generated subtopic object.
+ */
+async function finalizeSubtopicGeneration(jobId: string, subtopic: any) {
+    await updateProgress(jobId, SUBTOPIC_GENERATION_STEPS.FINALIZING, {
+        status: 'completed',
+        result: {
+            thumbnail: subtopic.thumbnail,
+            banner: subtopic.banner,
+            content: subtopic.content,
+        },
+    });
+}
+
+/**
+ * Processes a subtopic generation job.
+ * @param job - Bull job containing the subtopic generation data.
+ * @returns The generated subtopic object.
+ * @throws Will throw an error if the subtopic generation fails.
+ */
+export async function processSubtopicGeneration(job: Job<SubtopicGenerationJob>): Promise<any> {
     const { courseId, topicId, subtopicId, jobId } = job.data;
 
     try {
         // Initialize job progress
-        await updateJobProgress(jobId, {
-            jobId,
-            userId: courseId,
-            status: 'processing',
-            progress: SUBTOPIC_GENERATION_STEPS.INITIALIZING.progress,
-            currentStep: SUBTOPIC_GENERATION_STEPS.INITIALIZING.name,
-        });
+        await updateProgress(jobId, SUBTOPIC_GENERATION_STEPS.INITIALIZING);
 
-        // Generate subtopic overview content
-        await updateJobProgress(jobId, {
-            progress: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.SUBTOPIC_OVERVIEW.progress,
-            currentStep: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.SUBTOPIC_OVERVIEW.name,
-        });
+        // Generate subtopic content
+        const subtopic = await generateSubtopic(courseId, topicId, subtopicId,jobId);
 
-        const subtopic = await courseService.generateSubtopicContent(courseId, topicId, subtopicId);
-
-        // Generate detailed subtopic content
-        await updateJobProgress(jobId, {
-            progress: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.SUBTOPIC_CONTENT.progress,
-            currentStep: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.SUBTOPIC_CONTENT.name,
-        });
-        // Generate thumbnail image
-        if (!subtopic.thumbnail) {
-            await updateJobProgress(jobId, {
-                progress: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.SUBTOPIC_THUMBNAILS.progress,
-                currentStep: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.SUBTOPIC_THUMBNAILS.name,
-            });
-        }
-
-        // Generate banner image
-        if (!subtopic.banner) {
-            await updateJobProgress(jobId, {
-                progress: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.SUBTOPIC_BANNERS.progress,
-                currentStep: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.SUBTOPIC_BANNERS.name,
-            });
-        }
-
-        // Finalize subtopic generation
-        await updateJobProgress(jobId, {
-            progress: SUBTOPIC_GENERATION_STEPS.FINALIZING.progress,
-            currentStep: SUBTOPIC_GENERATION_STEPS.FINALIZING.name,
-            status: 'completed',
-            result: {
-                thumbnail: subtopic.thumbnail,
-                banner: subtopic.banner,
-                content: subtopic.content,
-            },
-        });
-        console.log('Job finalized:', { jobId });
+        // Finalize generation
+        await finalizeSubtopicGeneration(jobId, subtopic);
 
         return subtopic;
     } catch (error) {
-        console.error('Error processing subtopic generation:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         await updateJobProgress(jobId, {
             status: 'failed',
-            error: error.message,
+            error: errorMessage,
         });
         throw error;
     }

@@ -2,6 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt.js';
 import prisma from '../config/prisma.js';
 
+/**
+ * Middleware to authenticate users by verifying the Bearer token.
+ * Attaches the authenticated user to the request object if valid.
+ * 
+ * @param req - The HTTP request object
+ * @param res - The HTTP response object
+ * @param next - The next middleware function
+ */
 export async function authenticate(
   req: Request,
   res: Response,
@@ -9,6 +17,7 @@ export async function authenticate(
 ) {
   try {
     const authHeader = req.headers.authorization;
+
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -23,12 +32,12 @@ export async function authenticate(
           include: {
             permissions: {
               include: {
-                permission: true
-              }
-            }
-          }
-        }
-      }
+                permission: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -42,15 +51,23 @@ export async function authenticate(
   }
 }
 
+/**
+ * Middleware to enforce specific permission requirements.
+ * Checks if the authenticated user has the required permission.
+ * 
+ * @param permission - The required permission name
+ * @returns Middleware function
+ */
 export function requirePermission(permission: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user;
+
     if (!user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const hasPermission = user.role.permissions.some(
-      rp => rp.permission.name === permission
+      (rp) => rp.permission.name === permission
     );
 
     if (!hasPermission) {

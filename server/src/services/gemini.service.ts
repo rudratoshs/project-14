@@ -11,38 +11,223 @@ import {
 import Course, { ICourse } from '../models/mongodb/Course';
 import ImageService from './image.service';
 import { jsonrepair } from 'jsonrepair'
+import { TOPIC_GENERATION_STEPS, SUBTOPIC_GENERATION_STEPS, COURSE_GENERATION_STEPS } from '../types/job';
+import { TopicGenerationResult, SubtopicGenerationResult, GenerationProgress } from '../types/generation';
+import { updateJobProgress } from '../utils/progress';
 
 export class GeminiService {
-  /**
-   * Generates content for a specific course topic.
-   * @param data - The course data including title, description, and type.
-   * @param currentTopicIndex - The index of the topic to generate content for.
-   * @returns The generated topic with its subtopics.
-   */
-  async generateCourseContent(
+  async generateCoursePartially(
     data: CreateCourseData,
+    jobId: string,
     currentTopicIndex: number = 0
-  ) {
-    const prompt = generateCoursePrompt(data, currentTopicIndex);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = await response.text();
+  ): Promise<{
+    description: string;
+    thumbnail: string;
+    banner: string;
+    title: string;
+    content: string;
+    order: number;
+    status: string;
+    subtopics: any[];
+  }> {
+    try {
+      const unixTimestamp = Math.floor(Date.now() / 1000);
 
-    const parsedContent = await this.safeJsonParse(text);
-    const topic = parsedContent.topic;
+      // Generate course description and main images if this is the first topic
+      let courseDescription = '';
+      let courseThumbnail = '';
+      let courseBanner = '';
 
-    return {
-      title: topic.title,
-      content: currentTopicIndex === 0 ? topic.content || '' : '',
-      order: currentTopicIndex + 1,
-      status: currentTopicIndex === 0 ? 'complete' : 'incomplete',
-      subtopics: topic.subtopics.map((subtopic: any, subIndex: number) => ({
-        title: subtopic.title,
-        content: currentTopicIndex === 0 ? subtopic.theory : '',
-        order: subIndex + 1,
+      if (currentTopicIndex === 0) {
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.DESCRIPTION_GENERATION.START.progress,
+          currentStep: COURSE_GENERATION_STEPS.DESCRIPTION_GENERATION.START.name,
+          details: {
+            courseName: `Generating description for course: ${data.title}`,
+          },
+        });
+
+        const descriptionPrompt = generatePromptForDescription(data.description);
+        const descriptionResult = await model.generateContent(descriptionPrompt);
+        const descriptionResponse = await descriptionResult.response;
+        const descriptionText = await descriptionResponse.text();
+        courseDescription = descriptionText.trim();
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.DESCRIPTION_GENERATION.COMPLETE.progress,
+          currentStep: COURSE_GENERATION_STEPS.DESCRIPTION_GENERATION.COMPLETE.name,
+          details: {
+            courseName: `Description generated for course: ${data.title}`,
+          },
+        });
+
+        // Generate main images
+        const imagePrompt = generatePromptForImages(data.title);
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.IMAGE_GENERATION.COURSE.THUMBNAIL.progress,
+          currentStep: COURSE_GENERATION_STEPS.IMAGE_GENERATION.COURSE.THUMBNAIL.name,
+          details: {
+            currentImage: `Generating course thumbnail for: ${data.title}`,
+          },
+        });
+
+        courseThumbnail = await ImageService.generateAndUploadImage(imagePrompt, 'thumbnail', true, unixTimestamp);
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.IMAGE_GENERATION.COURSE.BANNER.progress,
+          currentStep: COURSE_GENERATION_STEPS.IMAGE_GENERATION.COURSE.BANNER.name,
+          details: {
+            currentImage: `Generating course banner for: ${data.title}`,
+          },
+        });
+
+        courseBanner = await ImageService.generateAndUploadImage(imagePrompt, 'banner', true, unixTimestamp);
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.IMAGE_GENERATION.COURSE.COMPLETE.progress,
+          currentStep: COURSE_GENERATION_STEPS.IMAGE_GENERATION.COURSE.COMPLETE.name,
+          details: {
+            courseName: `Images generated for course: ${data.title}`,
+          },
+        });
+      }
+
+      // Generate topic content
+      await updateJobProgress(jobId, {
+        progress: COURSE_GENERATION_STEPS.TOPIC_GENERATION.CONTENT.START.progress,
+        currentStep: COURSE_GENERATION_STEPS.TOPIC_GENERATION.CONTENT.START.name,
+        details: {
+          currentTopic: `Generating content for topic in course: ${data.title}`,
+        },
+      });
+
+      const topicPrompt = generateCoursePrompt(data, currentTopicIndex);
+      const topicResult = await model.generateContent(topicPrompt);
+      const topicResponse = await topicResult.response;
+      const topicText = await topicResponse.text();
+      const parsedContent = await this.safeJsonParse(topicText);
+      const topic = parsedContent.topic;
+
+      let topicThumbnail = '';
+      let topicBanner = '';
+
+      if (currentTopicIndex === 0) {
+        const topicImagePrompt = generateTextPromptForImage(topic.title, data.title).trim();
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.TOPIC_GENERATION.IMAGE_GENERATION.THUMBNAIL.progress,
+          currentStep: COURSE_GENERATION_STEPS.TOPIC_GENERATION.IMAGE_GENERATION.THUMBNAIL.name,
+          details: {
+            currentImage: `Generating topic thumbnail for: ${topic.title}`,
+          },
+        });
+
+        topicThumbnail = await ImageService.generateAndUploadImage(topicImagePrompt, 'thumbnail', true, unixTimestamp);
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.TOPIC_GENERATION.IMAGE_GENERATION.BANNER.progress,
+          currentStep: COURSE_GENERATION_STEPS.TOPIC_GENERATION.IMAGE_GENERATION.BANNER.name,
+          details: {
+            currentImage: `Generating topic banner for: ${topic.title}`,
+          },
+        });
+
+        topicBanner = await ImageService.generateAndUploadImage(topicImagePrompt, 'banner', true, unixTimestamp);
+
+        await updateJobProgress(jobId, {
+          progress: COURSE_GENERATION_STEPS.TOPIC_GENERATION.IMAGE_GENERATION.COMPLETE.progress,
+          currentStep: COURSE_GENERATION_STEPS.TOPIC_GENERATION.IMAGE_GENERATION.COMPLETE.name,
+          details: {
+            currentTopic: `Images generated for topic: ${topic.title}`,
+          },
+        });
+      }
+
+      // Generate subtopics with images
+      const subtopics = await Promise.all(
+        topic.subtopics.map(async (subtopic: any, subIndex: number) => {
+          let subtopicThumbnail = '';
+          let subtopicBanner = '';
+
+          if (currentTopicIndex === 0) {
+            const subtopicImagePrompt = generateTextPromptForImage(subtopic.title, data.title).trim();
+
+            await updateJobProgress(jobId, {
+              progress: COURSE_GENERATION_STEPS.SUBTOPIC_GENERATION.IMAGE_GENERATION.THUMBNAIL.progress,
+              currentStep: COURSE_GENERATION_STEPS.SUBTOPIC_GENERATION.IMAGE_GENERATION.THUMBNAIL.name,
+              details: {
+                currentImage: `Generating subtopic thumbnail for: ${subtopic.title}`,
+              },
+            });
+
+            subtopicThumbnail = await ImageService.generateAndUploadImage(subtopicImagePrompt, 'thumbnail', true, unixTimestamp);
+
+            await updateJobProgress(jobId, {
+              progress: COURSE_GENERATION_STEPS.SUBTOPIC_GENERATION.IMAGE_GENERATION.BANNER.progress,
+              currentStep: COURSE_GENERATION_STEPS.SUBTOPIC_GENERATION.IMAGE_GENERATION.BANNER.name,
+              details: {
+                currentImage: `Generating subtopic banner for: ${subtopic.title}`,
+              },
+            });
+
+            subtopicBanner = await ImageService.generateAndUploadImage(subtopicImagePrompt, 'banner', true, unixTimestamp);
+
+            await updateJobProgress(jobId, {
+              progress: COURSE_GENERATION_STEPS.SUBTOPIC_GENERATION.IMAGE_GENERATION.COMPLETE.progress,
+              currentStep: COURSE_GENERATION_STEPS.SUBTOPIC_GENERATION.IMAGE_GENERATION.COMPLETE.name,
+              details: {
+                currentSubtopic: `Images generated for subtopic: ${subtopic.title}`,
+              },
+            });
+          }
+
+          return {
+            title: subtopic.title,
+            content: currentTopicIndex === 0 ? subtopic.theory : '',
+            order: subIndex + 1,
+            status: currentTopicIndex === 0 ? 'complete' : 'incomplete',
+            thumbnail: subtopicThumbnail,
+            banner: subtopicBanner,
+          };
+        })
+      );
+
+      await updateJobProgress(jobId, {
+        progress: COURSE_GENERATION_STEPS.TOPIC_GENERATION.CONTENT.COMPLETE.progress,
+        currentStep: COURSE_GENERATION_STEPS.TOPIC_GENERATION.CONTENT.COMPLETE.name,
+        details: {
+          currentTopic: `Topic content generation complete for: ${topic.title}`,
+        },
+      });
+
+      await updateJobProgress(jobId, {
+        progress: COURSE_GENERATION_STEPS.FINALIZATION.COMPLETE.progress,
+        currentStep: COURSE_GENERATION_STEPS.FINALIZATION.COMPLETE.name,
+        details: {
+          courseName: `Course generation complete for: ${data.title}`,
+        },
+      });
+
+      return {
+        description: courseDescription,
+        thumbnail: courseThumbnail,
+        banner: courseBanner,
+        title: topic.title,
+        content: currentTopicIndex === 0 ? topic.theory || '' : '',
+        order: currentTopicIndex + 1,
         status: currentTopicIndex === 0 ? 'complete' : 'incomplete',
-      })),
-    };
+        subtopics,
+      };
+    } catch (error) {
+      console.error('Error in generateCourseWithContentAndImages:', error);
+      await updateJobProgress(jobId, {
+        progress: 0,
+        currentStep: 'Error',
+        error: `Failed to generate course content: ${error.message}`,
+      });
+      throw error;
+    }
   }
 
   /**
@@ -80,7 +265,8 @@ export class GeminiService {
   async generateSubtopicContent(
     courseId: string,
     topicId: string,
-    subtopicId: string
+    subtopicId: string,
+    jobId: string
   ): Promise<any> {
     // Fetch the course
     const course = await Course.findById(courseId);
@@ -99,8 +285,21 @@ export class GeminiService {
 
     const unixTimestamp = Math.floor(Date.now() / 1000);
 
+    // Initialize progress
+    await updateJobProgress(jobId, {
+      progress: SUBTOPIC_GENERATION_STEPS.INITIALIZING.progress,
+      currentStep: SUBTOPIC_GENERATION_STEPS.INITIALIZING.name,
+      details: { currentSubtopic: `Initializing generation for: ${subtopic.title}` },
+    });
+
     // Generate subtopic content if missing
     if (!subtopic.content) {
+      await updateJobProgress(jobId, {
+        progress: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.START.progress,
+        currentStep: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.START.name,
+        details: { currentSubtopic: `Generating content for: ${subtopic.title}` },
+      });
+
       const subtopicPrompt = generateSubtopicContentPrompt(topic.title, subtopic.title).trim();
       const result = await model.generateContent(subtopicPrompt);
       const response = await result.response;
@@ -109,10 +308,22 @@ export class GeminiService {
 
       subtopic.content = parsedContent.content || 'Content not available.';
       subtopic.status = 'complete';
+
+      await updateJobProgress(jobId, {
+        progress: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.COMPLETED.progress,
+        currentStep: SUBTOPIC_GENERATION_STEPS.CONTENT_GENERATION.COMPLETED.name,
+        details: { currentSubtopic: `Content generated for: ${subtopic.title}` },
+      });
     }
 
-    // Generate subtopic thumbnail and banner if missing
+    // Generate subtopic thumbnail if missing
     if (!subtopic.thumbnail) {
+      await updateJobProgress(jobId, {
+        progress: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.START_THUMBNAIL.progress,
+        currentStep: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.START_THUMBNAIL.name,
+        details: { currentImage: `Generating thumbnail for: ${subtopic.title}` },
+      });
+
       const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, course.title).trim();
       subtopic.thumbnail = await ImageService.generateAndUploadImage(
         subtopicTextPrompt,
@@ -120,9 +331,22 @@ export class GeminiService {
         true,
         unixTimestamp
       );
+
+      await updateJobProgress(jobId, {
+        progress: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.THUMBNAIL_COMPLETED.progress,
+        currentStep: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.THUMBNAIL_COMPLETED.name,
+        details: { currentImage: `Thumbnail generated for: ${subtopic.title}` },
+      });
     }
 
+    // Generate subtopic banner if missing
     if (!subtopic.banner) {
+      await updateJobProgress(jobId, {
+        progress: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.START_BANNER.progress,
+        currentStep: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.START_BANNER.name,
+        details: { currentImage: `Generating banner for: ${subtopic.title}` },
+      });
+
       const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, course.title).trim();
       subtopic.banner = await ImageService.generateAndUploadImage(
         subtopicTextPrompt,
@@ -130,7 +354,20 @@ export class GeminiService {
         true,
         unixTimestamp
       );
+
+      await updateJobProgress(jobId, {
+        progress: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.BANNER_COMPLETED.progress,
+        currentStep: SUBTOPIC_GENERATION_STEPS.IMAGE_GENERATION.BANNER_COMPLETED.name,
+        details: { currentImage: `Banner generated for: ${subtopic.title}` },
+      });
     }
+
+    // Finalize progress
+    await updateJobProgress(jobId, {
+      progress: SUBTOPIC_GENERATION_STEPS.FINALIZING.progress,
+      currentStep: SUBTOPIC_GENERATION_STEPS.FINALIZING.name,
+      details: { currentSubtopic: `Subtopic generation completed for: ${subtopic.title}` },
+    });
 
     // Save the course
     await course.save();
@@ -145,97 +382,75 @@ export class GeminiService {
    * @param topicId - The ID of the topic.
    * @returns The updated topic with completed subtopics.
    */
-  async generateTopicContent(courseId: string, topicId: string): Promise<any> {
-    const course = await Course.findById(courseId);
-    console.log('course', course)
-    if (!course) throw new Error('Course not found');
+  async generateTopicContent(
+    courseId: string,
+    topicId: string,
+    jobId: string,
+    topicTitle: string,
+    courseTitle: string
+  ): Promise<TopicGenerationResult> {
+    try {
+      // Generate main content
+      await updateJobProgress(jobId, {
+        progress: TOPIC_GENERATION_STEPS.CONTENT_GENERATION.TOPIC_OVERVIEW.progress,
+        currentStep: TOPIC_GENERATION_STEPS.CONTENT_GENERATION.TOPIC_OVERVIEW.name,
+        details: {
+          currentTopic: `Generating content for: ${topicTitle}`
+        }
+      });
 
-    const topic = course.topics.find((t) => t.id === topicId);
-    if (!topic) throw new Error('Topic not found');
-
-    if (topic.status === 'complete') return topic;
-
-    if (!topic.subtopics || topic.subtopics.length === 0) {
-      throw new Error('Subtopics not found for this topic');
-    }
-
-    const unixTimestamp = Math.floor(Date.now() / 1000);
-
-    // Generate topic-level content if missing
-    if (!topic.content || !topic.thumbnail || !topic.banner) {
-      const topicPrompt = generateSubtopicContentPrompt(topic.title, topic.title).trim();
+      const topicPrompt = generateSubtopicContentPrompt(topicTitle, topicTitle).trim();
       const result = await model.generateContent(topicPrompt);
       const response = await result.response;
       const text = await response.text();
       const parsedContent = await this.safeJsonParse(text);
 
-      topic.content = parsedContent.content || 'Content not available.';
+      const content = parsedContent.content || 'Content not available.';
 
-      if (!topic.thumbnail) {
-        const topicTextPrompt = generateTextPromptForImage(topic.title, course.title).trim();
-        topic.thumbnail = await ImageService.generateAndUploadImage(
-          topicTextPrompt,
-          'thumbnail',
-          true,
-          unixTimestamp
-        );
-      }
-
-      if (!topic.banner) {
-        const topicTextPrompt = generateTextPromptForImage(topic.title, course.title).trim();
-        topic.banner = await ImageService.generateAndUploadImage(
-          topicTextPrompt,
-          'banner',
-          true,
-          unixTimestamp
-        );
-      }
-    }
-
-    // Process subtopics
-    await Promise.allSettled(
-      topic.subtopics.map(async (subtopic) => {
-        if (subtopic.status === 'incomplete' || !subtopic.content) {
-          const subtopicPrompt = generateSubtopicContentPrompt(topic.title, subtopic.title).trim();
-          const result = await model.generateContent(subtopicPrompt);
-          const response = await result.response;
-          const text = await response.text();
-          const parsedContent = await this.safeJsonParse(text);
-
-          subtopic.content = parsedContent.content || 'Content not available.';
-          subtopic.status = 'complete';
-
-          if (!subtopic.thumbnail) {
-            const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, course.title).trim();
-            subtopic.thumbnail = await ImageService.generateAndUploadImage(
-              subtopicTextPrompt,
-              'thumbnail',
-              true,
-              unixTimestamp
-            );
-          }
-
-          if (!subtopic.banner) {
-            const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, course.title).trim();
-            subtopic.banner = await ImageService.generateAndUploadImage(
-              subtopicTextPrompt,
-              'banner',
-              true,
-              unixTimestamp
-            );
-          }
+      // Generate thumbnail
+      await updateJobProgress(jobId, {
+        progress: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_THUMBNAILS.progress,
+        currentStep: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_THUMBNAILS.name,
+        details: {
+          currentImage: 'Generating thumbnail...'
         }
-      })
-    );
+      });
 
-    // Update topic status if all subtopics are complete
-    if (topic.subtopics.every((s) => s.status === 'complete')) {
-      topic.status = 'complete';
+      const unixTimestamp = Math.floor(Date.now() / 1000);
+      const thumbnailPrompt = generateTextPromptForImage(topicTitle, courseTitle).trim();
+      const thumbnail = await ImageService.generateAndUploadImage(
+        thumbnailPrompt,
+        'thumbnail',
+        true,
+        unixTimestamp
+      );
+
+      // Generate banner
+      await updateJobProgress(jobId, {
+        progress: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_BANNERS.progress,
+        currentStep: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_BANNERS.name,
+        details: {
+          currentImage: 'Generating banner...'
+        }
+      });
+
+      const bannerPrompt = generateTextPromptForImage(topicTitle, courseTitle).trim();
+      const banner = await ImageService.generateAndUploadImage(
+        bannerPrompt,
+        'banner',
+        true,
+        unixTimestamp
+      );
+
+      return {
+        content,
+        thumbnail,
+        banner
+      };
+    } catch (error) {
+      console.error('Error generating topic content:', error);
+      throw error;
     }
-
-    // Save the updated course
-    await course.save();
-    return topic;
   }
 
   /**
@@ -246,127 +461,6 @@ export class GeminiService {
   async parseGeneratedContent(rawText: string): Promise<any> {
     const cleanedText = await this.safeJsonParse(rawText);
     return JSON.parse(cleanedText);
-  }
-
-  /**
-   * Handles subtopics with failed content generation.
-   * @param courseId - The ID of the course.
-   * @param topicId - The ID of the topic.
-   * @returns The updated topic with retried subtopics.
-   */
-  async handleFailedSubtopics(courseId: string, topicId: string): Promise<any> {
-    const course = await Course.findById(courseId);
-    if (!course) throw new Error('Course not found');
-
-    const topic = course.topics.find((t) => t.id === topicId);
-    if (!topic) throw new Error('Topic not found');
-
-    if (!topic.subtopics || topic.subtopics.length === 0) {
-      throw new Error('Subtopics not found for this topic');
-    }
-
-    const failedSubtopics = topic.subtopics.filter(
-      (sub) =>
-        sub.content ===
-        'Content generation failed due to invalid response format.'
-    );
-
-    if (failedSubtopics.length === 0) {
-      return topic; // No failed subtopics, return the topic as is
-    }
-
-    await Promise.all(
-      failedSubtopics.map(async (subtopic) => {
-        const prompt = generateSubtopicContentPrompt(
-          topic.title,
-          subtopic.title
-        );
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = await response.text();
-        const parsedContent = await this.parseGeneratedContent(text);
-
-        subtopic.content =
-          parsedContent.content || 'Content generation failed.';
-        subtopic.status = 'complete';
-      })
-    );
-
-    await course.save();
-    return topic;
-  }
-
-  async generateCourseContentWithImages(
-    data: CreateCourseData,
-    currentTopicIndex: number = 0
-  ) {
-    const prompt = generateCoursePrompt(data, currentTopicIndex);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = await response.text();
-
-    console.log('Raw Generated Content:', text);
-    const parsedContent = await this.safeJsonParse(text);
-    const topic = parsedContent.topic;
-
-    let topicThumbnail = '';
-    let topicBanner = '';
-    const unixTimestamp = Math.floor(Date.now() / 1000);
-
-    // if (currentTopicIndex === 0) {
-    //   const topicTextPrompt = generateTextPromptForImage(topic.title, data.title).trim();
-    //   topicThumbnail = await ImageService.generateAndUploadImage(topicTextPrompt, 'thumbnail', true, unixTimestamp);
-    //   topicBanner = await ImageService.generateAndUploadImage(topicTextPrompt, 'banner', true, unixTimestamp);
-    // }
-
-    const subtopics = await Promise.all(
-      topic.subtopics.map(async (subtopic: any, subIndex: number) => {
-        let subtopicThumbnail = '';
-        let subtopicBanner = '';
-
-        // if (currentTopicIndex === 0) {
-        //   const subtopicTextPrompt = generateTextPromptForImage(subtopic.title, data.title).trim();
-        //   subtopicThumbnail = await ImageService.generateAndUploadImage(subtopicTextPrompt, 'thumbnail', true, unixTimestamp);
-        //   subtopicBanner = await ImageService.generateAndUploadImage(subtopicTextPrompt, 'banner', true, unixTimestamp);
-        // }
-
-        return {
-          title: subtopic.title,
-          content: currentTopicIndex === 0 ? subtopic.theory : '',
-          order: subIndex + 1,
-          status: currentTopicIndex === 0 ? 'complete' : 'incomplete',
-          thumbnail: subtopicThumbnail,
-          banner: subtopicBanner,
-        };
-      })
-    );
-
-    return {
-      title: topic.title,
-      content: currentTopicIndex === 0 ? topic.theory || '' : '',
-      order: currentTopicIndex + 1,
-      status: currentTopicIndex === 0 ? 'complete' : 'incomplete',
-      thumbnail: currentTopicIndex === 0 ? topicThumbnail : '',
-      banner: currentTopicIndex === 0 ? topicBanner : '',
-      subtopics,
-    };
-  }
-
-  async generateMainCourseContent(description: string, courseTitle: string): Promise<{ description: string; thumbnail: string; banner: string }> {
-    const descriptionPrompt = generatePromptForDescription(description);
-
-    const result = await model.generateContent(descriptionPrompt);
-    const response = await result.response;
-    const text = await response.text();
-    const expandedDescription = text.trim();
-
-    const imagePrompt = generatePromptForImages(courseTitle);
-    const unixTimestamp = Math.floor(Date.now() / 1000);
-
-    const thumbnail = await ImageService.generateAndUploadImage(imagePrompt, 'thumbnail', true, unixTimestamp);
-    const banner = await ImageService.generateAndUploadImage(imagePrompt, 'banner', true, unixTimestamp);
-
-    return { description: expandedDescription, thumbnail, banner };
   }
 
   /**

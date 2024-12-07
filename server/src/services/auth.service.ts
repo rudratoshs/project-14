@@ -3,67 +3,71 @@ import prisma from '../config/prisma.js';
 import { generateToken } from '../utils/jwt.js';
 import { LoginCredentials, RegisterData } from '../types/auth.js';
 
+const SALT_ROUNDS = 10;
+
 export class AuthService {
+  /**
+   * Handles user login.
+   * @param credentials - User's login credentials.
+   * @returns Object containing user info and JWT token.
+   * @throws Error if credentials are invalid.
+   */
   async login(credentials: LoginCredentials) {
     const user = await prisma.user.findUnique({
       where: { email: credentials.email },
-      include: { role: true }
+      include: { role: true },
     });
 
     if (!user) {
       throw new Error('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      credentials.password,
-      user.password
-    );
-
+    const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
     if (!isPasswordValid) {
       throw new Error('Invalid credentials');
     }
 
-    const token = generateToken({
-      userId: user.id,
-      roleId: user.roleId
-    });
+    const token = generateToken({ userId: user.id, roleId: user.roleId });
 
     return { user, token };
   }
 
+  /**
+   * Handles user registration.
+   * @param data - User's registration data.
+   * @returns Object containing created user info and JWT token.
+   * @throws Error if email is already registered or if student role is missing.
+   */
   async register(data: RegisterData) {
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email }
+      where: { email: data.email },
     });
 
     if (existingUser) {
-      throw new Error('Email already registered');
+      throw new Error('Email is already registered');
     }
 
     const studentRole = await prisma.role.findFirst({
-      where: { name: 'student' }
+      where: { name: 'student' },
     });
 
     if (!studentRole) {
-      throw new Error('Student role not found');
+      throw new Error('Student role is not configured in the system');
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
 
     const user = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
         password: hashedPassword,
-        roleId: studentRole.id
+        roleId: studentRole.id,
       },
-      include: { role: true }
+      include: { role: true },
     });
 
-    const token = generateToken({
-      userId: user.id,
-      roleId: user.roleId
-    });
+    const token = generateToken({ userId: user.id, roleId: user.roleId });
 
     return { user, token };
   }
