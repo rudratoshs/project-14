@@ -22,7 +22,7 @@ interface CourseGridProps {
   onCreateClick: () => void; // Add this prop
 }
 
-export default function CourseGrid({ courses, onCourseClick ,onCreateClick}: CourseGridProps) {
+export default function CourseGrid({ courses, onCourseClick, onCreateClick }: CourseGridProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedAccessibility, setSelectedAccessibility] = useState<string | null>(null);
@@ -84,19 +84,20 @@ export default function CourseGrid({ courses, onCourseClick ,onCreateClick}: Cou
           </Select>
         </div>
       </div>
- 
+
       {/* Course Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {displayedCourses.map((course: any, index: number) => (
+        {[
+          ...new Map(
+            [...displayedCourses, ...filteredCourses].map((course) => [course.id, course])
+          ).values(),
+        ].map((course: any) =>
           course.isCreateCard ? (
-            <CreateCourseCard key="create-course" onClick={onCreateClick}/>
+            <CreateCourseCard key="create-course" onClick={onCreateClick} />
           ) : (
             <CourseCard key={course.id} course={course} onClick={() => onCourseClick(course)} />
           )
-        ))}
-        {filteredCourses.map((course) => (
-          <CourseCard key={course.id} course={course} onClick={() => onCourseClick(course)} />
-        ))}
+        )}
       </div>
       {/* Empty State */}
       {/* {filteredCourses.length === 0 && (
@@ -118,22 +119,22 @@ interface CourseCardProps {
 function CourseCard({ course, onClick }: CourseCardProps) {
   const { progress } = useJobProgress(course.jobId || null);
   const isGenerating = progress && progress.status === 'processing';
-  
+
   // Calculate completion percentage based on topics
   const completedTopics = course.topics.filter(t => t.status === 'complete').length;
-  const completionPercent = isGenerating 
-    ? progress.progress 
+  const completionPercent = isGenerating
+    ? progress.progress
     : (completedTopics / course.topics.length) * 100;
 
   // Ensure thumbnail URL is properly formatted
-  const thumbnailUrl = course.thumbnail?.startsWith('http') 
-    ? course.thumbnail 
-    : course.thumbnail 
+  const thumbnailUrl = course.thumbnail?.startsWith('http')
+    ? course.thumbnail
+    : course.thumbnail
       ? `${import.meta.env.VITE_API_URL}${course.thumbnail}`
       : null;
 
   return (
-    <Card 
+    <Card
       className={cn(
         "overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer group",
         isGenerating && "animate-pulse"

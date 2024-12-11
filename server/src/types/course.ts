@@ -13,6 +13,7 @@ export interface CreateCourseData {
 export interface UpdateCourseData {
   title?: string;
   description?: string;
+  content?: string;
   type?: 'image_theory' | 'video_theory';
   accessibility?: 'free' | 'paid' | 'limited';
   topics?: Array<{

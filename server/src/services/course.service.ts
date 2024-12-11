@@ -119,13 +119,14 @@ export class CourseService {
     const course = await Course.findByIdAndUpdate(courseId, data, {
       new: true,
     });
+    console.log('course',course)
 
     if (course) {
       await prisma.course.update({
         where: { mongoId: courseId },
         data: {
           title: data.title,
-          description: data.description,
+          description: data.content,
           type: data.type,
           accessibility: data.accessibility,
         },

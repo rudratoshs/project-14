@@ -27,9 +27,10 @@ import { getCourse } from '@/lib/api/courses';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { CopyBlock, dracula } from "react-code-blocks";
-import { generateTopicContent, generateSubtopicContent, getSubtopic } from '@/lib/api/courses';
+import { generateTopicContent, generateSubtopicContent, getSubtopic, updateCourse } from '@/lib/api/courses';
 import CourseProgress from './CourseProgress';
 import { useJobProgress } from '@/hooks/useJobProgress';
+import { ContentEditor } from './editors';
 
 export default function CourseDetails() {
     const navigate = useNavigate();
@@ -41,11 +42,13 @@ export default function CourseDetails() {
     const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null);
     const [openTopicId, setOpenTopicId] = useState<string | undefined>(undefined);
     const [generatingTopicId, setGeneratingTopicId] = useState<string | null>(null);
+    const [generatingTopicJobId, setGeneratingTopicJobId] = useState<string | null>(null);
     const [generatingSubtopicId, setGeneratingSubtopicId] = useState<string | null>(null);
     const [generatingSubopicJobId, setGeneratingSubtopicJobId] = useState<string | null>(null);
 
 
     const { progress } = useJobProgress(generatingSubopicJobId);
+    const { progress: topicRealTimeProgress } = useJobProgress(generatingTopicJobId);
 
     useEffect(() => {
         if (progress?.status === 'completed' && generatingSubtopicId) {
@@ -82,6 +85,40 @@ export default function CourseDetails() {
             updateSubtopic();
         }
     }, [progress?.status, generatingSubtopicId, course?.id, selectedTopic?.id]);
+
+    useEffect(() => {
+        if (topicRealTimeProgress?.status === 'completed' && generatingTopicId) {
+            const updateTopic = async () => {
+                try {
+                    // Fetch the course data and locate the updated topic
+                    const updatedCourse = await getCourse(course?.id || '');
+                    if (updatedCourse) {
+                        const updatedTopic = updatedCourse.topics.find(
+                            (topic) => topic.id === generatingTopicId
+                        );
+
+                        if (updatedTopic) {
+                            setCourse((prevCourse) => {
+                                if (!prevCourse) return null;
+
+                                const updatedTopics = prevCourse.topics.map((topic) =>
+                                    topic.id === generatingTopicId ? updatedTopic : topic
+                                );
+
+                                return { ...prevCourse, topics: updatedTopics };
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating topic content:', error);
+                } finally {
+                    setGeneratingTopicId(null); // Clear the generating ID
+                }
+            };
+
+            updateTopic();
+        }
+    }, [topicRealTimeProgress?.status, generatingTopicId, course?.id]);
 
     useEffect(() => {
         const fetchCourse = async () => {
@@ -311,6 +348,75 @@ export default function CourseDetails() {
         );
     };
 
+    const renderTopicContent = (topic: Topic) => {
+        const isGenerating = generatingTopicId === topic.id && topicProgress?.status !== 'completed';
+        const isCompleted = topic.status === 'complete' && topic.content;
+
+        return (
+            <div className="space-y-6">
+                {/* Title */}
+                <div className="border-b pb-4">
+                    <h3 className="text-2xl font-bold text-gray-900">{topic.title}</h3>
+                    <div className="flex items-center gap-2 mt-2">
+                        <Badge
+                            variant={topic.status === 'complete' ? 'success' : 'secondary'}
+                            className="px-2.5 py-0.5 text-xs font-medium"
+                        >
+                            {topic.status === 'complete' ? 'Complete' : 'In Progress'}
+                        </Badge>
+                    </div>
+                </div>
+
+                {/* Banner */}
+                {topic.banner && (
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+                        <img
+                            src={topic.banner}
+                            alt={`${topic.title} banner`}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                )}
+
+                {/* Content or Generate Button */}
+                {isCompleted ? (
+                    <div className="prose prose-gray max-w-none">
+                        {formatContent(topic.content)}
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {isGenerating && topicProgress ? (
+                            <CourseProgress progress={topicProgress} />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
+                                <p className="text-muted-foreground mb-4">Content needs to be generated for this Topic</p>
+                                <Button
+                                    onClick={() => handleGenerateContent(topic)}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Wand2 className="h-4 w-4" />
+                                    Generate Content
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Align ContentEditor to the right */}
+                <div className="flex justify-end mt-4">
+                    <ContentEditor
+                        title={topic.title}
+                        content={formatContent(topic.content)}
+                        thumbnail={topic.thumbnail}
+                        banner={topic.banner}
+                        onSave={(data) => handleUpdateTopic(topic.id, data)}
+                        type="topic"
+                    />
+                </div>
+            </div>
+        );
+    };
+
     if (loading) {
         return <CourseDetailsSkeleton />;
     }
@@ -343,7 +449,7 @@ export default function CourseDetails() {
             setGeneratingTopicId(topic.id);
             const response = await generateTopicContent(id, topic.id);
             if (response.jobId) {
-                // Update course with the new jobId
+                setGeneratingTopicJobId(response.jobId); // Set the job ID for progress tracking
                 const updatedTopics = course?.topics.map(t =>
                     t.id === topic.id ? { ...t, jobId: response.jobId } : t
                 ) || [];
@@ -387,6 +493,46 @@ export default function CourseDetails() {
             });
 
             setGeneratingSubtopicJobId(null); // Clear generating state on error
+        }
+    };
+
+    const handleUpdateTopic = async (topicId: string, data: Partial<Topic>) => {
+        try {
+            if (!course?.id) return;
+            const updatedTopics = course.topics.map(t =>
+                t.id === topicId ? { ...t, ...data } : t
+            );
+            await updateCourse(course.id, { topics: updatedTopics });
+            setCourse(prev => prev ? { ...prev, topics: updatedTopics } : null);
+            toast({
+                title: 'Success',
+                description: 'Topic updated successfully',
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to update topic',
+            });
+        }
+    };
+
+    const handleUpdateCourse = async (data: Partial<Course>) => {
+        try {
+            if (!course?.id) return;
+            console.log('data', data)
+            await updateCourse(course.id, data);
+            setCourse(prev => prev ? { ...prev, ...data } : null);
+            toast({
+                title: 'Success',
+                description: 'Course updated successfully',
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to update course',
+            });
         }
     };
 
@@ -441,7 +587,14 @@ export default function CourseDetails() {
                                     {course.description}
                                 </p>
                             </div>
-
+                            <ContentEditor
+                                title={course.title}
+                                content={formatContent(course.description)}
+                                thumbnail={course.thumbnail}
+                                banner={course.banner}
+                                onSave={handleUpdateCourse}
+                                type="course"
+                            />
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="text-muted-foreground">Progress</span>
@@ -507,8 +660,19 @@ export default function CourseDetails() {
                                         </AccordionTrigger>
                                         <AccordionContent>
                                             <div className="px-6 py-4 space-y-6">
+                                                {/* Topic Banner */}
+                                                {topic.banner && (
+                                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+                                                        <img
+                                                            src={topic.banner}
+                                                            alt={`${topic.title} banner`}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
+                                                )}
+
                                                 {/* Topic Content */}
-                                                {topic.content && (
+                                                {topic.content ? (
                                                     <div className="prose max-w-none">
                                                         {topic.status === 'complete' ? (
                                                             formatContent(topic.content)
@@ -524,17 +688,36 @@ export default function CourseDetails() {
                                                                 </Button>
                                                             </div>
                                                         )}
-                                                    </div>
-                                                )}
 
-                                                {/* Topic Banner */}
-                                                {topic.banner && (
-                                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
-                                                        <img
-                                                            src={topic.banner}
-                                                            alt={`${topic.title} banner`}
-                                                            className="w-full h-full object-cover"
-                                                        />
+                                                        {/* Align ContentEditor to the right */}
+                                                        <div className="flex justify-end mt-4">
+                                                            <ContentEditor
+                                                                title={topic.title}
+                                                                content={formatContent(topic.content)}
+                                                                thumbnail={topic.thumbnail}
+                                                                banner={topic.banner}
+                                                                onSave={(data) => handleUpdateTopic(topic.id, data)}
+                                                                type="topic"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        {/* Check if topic generation is in progress */}
+                                                        {generatingTopicId === topic.id && progress?.status !== 'completed' ? (
+                                                            <CourseProgress progress={progress} />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
+                                                                <p className="text-muted-foreground mb-4">Topic content needs to be generated</p>
+                                                                <Button
+                                                                    onClick={() => handleGenerateContent(topic)}
+                                                                    className="flex items-center gap-2"
+                                                                >
+                                                                    <Wand2 className="h-4 w-4" />
+                                                                    Generate Content
+                                                                </Button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
 
@@ -547,10 +730,10 @@ export default function CourseDetails() {
                                                                 <div key={subtopic.id}>
                                                                     <div
                                                                         className={cn(
-                                                                            "p-4 rounded-lg border cursor-pointer transition-colors",
+                                                                            'p-4 rounded-lg border cursor-pointer transition-colors',
                                                                             selectedSubtopic?.id === subtopic.id
-                                                                                ? "bg-primary/5 border-primary"
-                                                                                : "hover:bg-gray-50"
+                                                                                ? 'bg-primary/5 border-primary'
+                                                                                : 'hover:bg-gray-50'
                                                                         )}
                                                                         onClick={() => handleSubtopicClick(subtopic)}
                                                                     >
@@ -560,7 +743,9 @@ export default function CourseDetails() {
                                                                                     {subIndex + 1}. {subtopic.title}
                                                                                 </span>
                                                                                 {subtopic.status === 'complete' && (
-                                                                                    <Badge variant="success" className="ml-2">Complete</Badge>
+                                                                                    <Badge variant="success" className="ml-2">
+                                                                                        Complete
+                                                                                    </Badge>
                                                                                 )}
                                                                             </div>
                                                                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
