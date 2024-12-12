@@ -18,6 +18,7 @@ export class ImageService {
         if (!this.imgbbApiKey && !this.pollinationsUrl) {
             throw new Error('IMGBB_API_KEY or POLLINATIONS_URL is required in environment variables');
         }
+        fs.mkdirSync(this.localStoragePath, { recursive: true });
     }
 
     /**
@@ -141,6 +142,34 @@ export class ImageService {
             const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
             console.error('Error in generateAndUploadImage:', errorMessage);
             throw new Error('Failed to generate and upload/store image.');
+        }
+    }
+
+    /**
+     * Stores an uploaded image locally and returns the accessible URL.
+     * @param fileBuffer - The image file buffer.
+     * @param originalName - The original file name for naming the stored file.
+     * @returns The local URL of the stored image.
+     */
+    async uploadAndStoreImageLocally(fileBuffer: Buffer, originalName: string): Promise<string> {
+        try {
+            const timestamp = Date.now();
+            const fileExtension = path.extname(originalName) || '.jpg';
+            const fileName = `${timestamp}${fileExtension}`;
+            const filePath = path.join(this.localStoragePath, fileName);
+
+            // Write the file to the local storage path
+            fs.writeFileSync(filePath, fileBuffer);
+
+            // Construct the public URL
+            const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000/images';
+            const accessibleUrl = `${baseUrl}/${fileName}`;
+
+            return accessibleUrl;
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+            console.error('Error storing image locally:', errorMessage);
+            throw new Error('Failed to store image locally.');
         }
     }
 }

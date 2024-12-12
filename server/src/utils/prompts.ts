@@ -135,6 +135,29 @@ export function generateSubtopicContentPrompt(
     `.trim();
 }
 
+export function generateTopicContentPrompt(mainTopic: string): string {
+  return `
+      Generate a detailed educational explanation for the main topic "${mainTopic}".
+      
+      Include:
+      - A clear introduction to the topic.
+      - Detailed explanations of the key concepts and ideas.
+      - Practical examples or use cases.
+      - Logical progression of ideas, starting from basics to advanced concepts.
+      
+      Format the response as JSON:
+      {
+        "title": "${mainTopic}",
+        "content": "Generated detailed explanation for the topic."
+      }
+      
+      Requirements:
+      - The explanation must be thorough, educational, and easy to understand.
+      - If there is any code, please include it within HTML <code> tags, but strictly avoid using other HTML tags.
+      - Avoid adding links, images, or unrelated content.
+    `.trim();
+}
+
 export function generateTextPromptForImage(
   topic: string,
   courseTitle: string

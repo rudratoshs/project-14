@@ -1,101 +1,95 @@
 import { Job } from 'bull';
 import { TopicGenerationJob } from '../../types/job';
 import { CourseService } from '../../services/course.service';
-import { TOPIC_GENERATION_STEPS } from '../../types/job';
 import { updateJobProgress } from '../../utils/progress';
+import { TOPIC_GENERATION_STEPS } from '../../types/job';
 
 const courseService = new CourseService();
 
 /**
- * Processes a topic generation job.
- * @param job - The Bull job containing data for topic generation.
- * @returns The generated topic with content and images.
- * @throws Throws an error if any step in the topic generation process fails.
+ * Initializes job progress for topic generation.
+ * @param jobId - The job ID.
+ * @param details - Additional progress details.
  */
-export async function processTopicGeneration(job: Job<TopicGenerationJob>) {
-    console.log('topic processor hit')
-    const { courseId, topicId, jobId } = job.data;
+async function initializeProgress(jobId: string, details?: Record<string, any>) {
+  await updateJobProgress(jobId, {
+    status: 'processing',
+    progress: TOPIC_GENERATION_STEPS.INITIALIZING.progress,
+    currentStep: TOPIC_GENERATION_STEPS.INITIALIZING.name,
+    ...details,
+  });
+}
 
-    if (!courseId || !topicId || !jobId) {
-        throw new Error('Missing required job data: courseId, topicId, or jobId.');
-    }
+/**
+ * Finalizes the job progress upon completion.
+ * @param jobId - The job ID.
+ * @param topic - The generated topic object.
+ */
+async function finalizeProgress(jobId: string, topic: any) {
+  await updateJobProgress(jobId, {
+    status: 'completed',
+    progress: TOPIC_GENERATION_STEPS.FINALIZING.progress,
+    currentStep: TOPIC_GENERATION_STEPS.FINALIZING.name,
+    result: {
+      thumbnail: topic.thumbnail,
+      banner: topic.banner,
+      content: topic.content,
+    },
+  });
+}
 
-    try {
-        // Step 1: Initialize job progress
-        await updateJobProgress(jobId, {
-            jobId,
-            userId: courseId,
-            status: 'processing',
-            progress: TOPIC_GENERATION_STEPS.INITIALIZING.progress,
-            currentStep: TOPIC_GENERATION_STEPS.INITIALIZING.name,
-        });
+/**
+ * Processes the topic generation.
+ * @param courseId - The course ID.
+ * @param topicId - The topic ID.
+ * @param jobId - The job ID.
+ * @param mode - The generation mode ('full' or 'partial').
+ * @returns The updated topic object.
+ */
+async function processTopic(courseId: string, topicId: string, jobId: string, topicGenerateType: string) {
+  const topic = await courseService.generateTopicContent(courseId, topicId, jobId,topicGenerateType);
 
-        // Step 2: Generate topic-level content
-        await updateJobProgress(jobId, {
-            progress: TOPIC_GENERATION_STEPS.CONTENT_GENERATION.TOPIC_OVERVIEW.progress,
-            currentStep: TOPIC_GENERATION_STEPS.CONTENT_GENERATION.TOPIC_OVERVIEW.name,
-        });
+  if (!topic) {
+    throw new Error('Failed to generate topic content.');
+  }
+  return topic;
+}
 
-        const topic = await courseService.generateTopicContent(courseId, topicId, jobId);
+/**
+ * Main handler for processing topic generation jobs.
+ * @param job - The Bull job containing topic generation data.
+ * @returns The generated topic object.
+ */
+export async function processTopicGeneration(job: Job<TopicGenerationJob>): Promise<any> {
+  const { courseId, topicId, jobId, topicGenerateType = 'full' } = job.data;
 
-        if (!topic) {
-            throw new Error('Failed to generate topic content.');
-        }
+  if (!courseId || !topicId || !jobId) {
+    throw new Error('Missing required job data: courseId, topicId, or jobId.');
+  }
 
-        // Step 3: Generate subtopic content (if applicable)
-        if (Array.isArray(topic.subtopics) && topic.subtopics.length > 0) {
-            for (let i = 0; i < topic.subtopics.length; i++) {
-                const subtopic = topic.subtopics[i];
+  try {
+    // Initialize progress
+    await initializeProgress(jobId, { currentTopic: `Starting topic: ${topicId}` });
 
-                if (subtopic.status === 'incomplete') {
-                    await courseService.generateSubtopicContent(courseId, topicId, subtopic.id);
+    // Process the topic
+    const topic = await processTopic(courseId, topicId, jobId, topicGenerateType);
 
-                    await updateJobProgress(jobId, {
-                        progress:
-                            TOPIC_GENERATION_STEPS.CONTENT_GENERATION.SUBTOPIC_CONTENT.progress +
-                            ((i + 1) / topic.subtopics.length) * 10, // Incremental progress calculation
-                        currentStep: `Generating content for subtopic: ${subtopic.title}`,
-                        details: {
-                            subtopicsCompleted: i + 1,
-                            totalSubtopics: topic.subtopics.length,
-                        },
-                    });
-                }
-            }
-        }
+    // Finalize progress
+    await finalizeProgress(jobId, topic);
 
-        // Step 4: Generate topic images (thumbnails and banners)
-        await updateJobProgress(jobId, {
-            progress: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_THUMBNAILS.progress,
-            currentStep: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_THUMBNAILS.name,
-        });
+    return topic;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
 
-        await updateJobProgress(jobId, {
-            progress: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_BANNERS.progress,
-            currentStep: TOPIC_GENERATION_STEPS.IMAGE_GENERATION.TOPIC_BANNERS.name,
-        });
+    // Handle failure
+    await updateJobProgress(jobId, {
+      status: 'failed',
+      error: errorMessage,
+      details: {
+        currentTopic: topicId,
+      },
+    });
 
-        // Step 5: Finalize topic generation
-        await updateJobProgress(jobId, {
-            progress: TOPIC_GENERATION_STEPS.FINALIZING.progress,
-            currentStep: TOPIC_GENERATION_STEPS.FINALIZING.name,
-            status: 'completed',
-            result: {
-                thumbnail: topic.thumbnail,
-                banner: topic.banner,
-                content: topic.content,
-            },
-        });
-
-        return topic;
-    } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-
-        await updateJobProgress(jobId, {
-            status: 'failed',
-            error: errorMessage,
-        });
-
-        throw err;
-    }
+    throw error;
+  }
 }

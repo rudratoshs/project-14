@@ -10,7 +10,8 @@ import {
     Video,
     Lock,
     Unlock,
-    Wand2
+    Wand2,
+    Radiation
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ import { generateTopicContent, generateSubtopicContent, getSubtopic, updateCours
 import CourseProgress from './CourseProgress';
 import { useJobProgress } from '@/hooks/useJobProgress';
 import { ContentEditor } from './editors';
+import { Tooltip } from 'react-tooltip';
 
 export default function CourseDetails() {
     const navigate = useNavigate();
@@ -161,6 +163,35 @@ export default function CourseDetails() {
         }
     };
 
+    const handleUpdateSubtopic = async (topicId: string, subtopicId: string, data: Partial<Subtopic>) => {
+        try {
+            if (!course?.id) return;
+            const updatedTopics = course.topics.map(t => {
+                if (t.id === topicId) {
+                    return {
+                        ...t,
+                        subtopics: t.subtopics?.map(s =>
+                            s.id === subtopicId ? { ...s, ...data } : s
+                        )
+                    };
+                }
+                return t;
+            });
+            await updateCourse(course.id, { topics: updatedTopics });
+            setCourse(prev => prev ? { ...prev, topics: updatedTopics } : null);
+            toast({
+                title: 'Success',
+                description: 'Subtopic updated successfully',
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to update subtopic',
+            });
+        }
+    };
+
     const decodeHTML = (html: string) => {
         const textarea = document.createElement("textarea");
         textarea.innerHTML = html;
@@ -168,42 +199,27 @@ export default function CourseDetails() {
     };
 
     const formatContent = (content: string) => {
-        console.log("Original Content:", content);
-
-        // Decode any HTML entities
         const decodedContent = decodeHTML(content);
 
-        // Adjust formatting to handle class attributes in <code> tags
         const sanitizedContent = decodedContent
-            .replace(/<pre>\s*<code[^>]*>/g, "<pre><code>") // Normalize <pre><code>
-            .replace(/<\/code>\s*<\/pre>/g, "</code></pre>"); // Normalize </code></pre>
+            .replace(/<pre>\s*<code[^>]*>/g, "<pre><code>")
+            .replace(/<\/code>\s*<\/pre>/g, "</code></pre>");
 
-        // Match and separate content by code blocks and other elements
-        const regex = /(<pre><code[^>]*>[\s\S]*?<\/code><\/pre>)|([^<]+)/g; // Capture content inside and outside HTML tags
+        const regex = /(<pre><code[^>]*>[\s\S]*?<\/code><\/pre>)|([^<]+)/g;
         const matches = [...sanitizedContent.matchAll(regex)];
 
-        console.log("Split Sections:", matches);
-
-        // Filter out empty or invalid sections
         const validSections = matches.filter(([fullMatch]) => fullMatch.trim());
 
         return validSections.map((match, index) => {
             const [fullMatch, codeBlock, otherContent] = match;
 
-            // Handle code blocks
             if (codeBlock) {
-                console.log(`Section ${index} identified as Code Block`);
                 const codeMatch = codeBlock.match(/^<pre><code[^>]*>([\s\S]+)<\/code><\/pre>$/);
 
                 if (codeMatch) {
                     const code = codeMatch[1].trim();
-
-                    // Extract language class if present
                     const languageMatch = codeBlock.match(/class="language-([a-zA-Z0-9]+)"/);
                     const language = languageMatch ? languageMatch[1] : "plaintext";
-
-                    console.log(`Code Content for Section ${index}:`, code);
-                    console.log(`Detected Language: ${language}`);
 
                     return (
                         <div key={index} className="my-6">
@@ -218,11 +234,7 @@ export default function CourseDetails() {
                 }
             }
 
-            // Handle other content
             if (otherContent && otherContent.trim()) {
-                console.log(`Processing Section ${index}:`, otherContent);
-
-                // Handle headings
                 if (/^(#+)\s(.*)$/.test(otherContent.trim())) {
                     const [, level, text] = otherContent.match(/^(#+)\s(.*)$/) || [];
                     if (level && text) {
@@ -245,15 +257,17 @@ export default function CourseDetails() {
                     }
                 }
 
-                // Handle lists
                 if (/^\s*[-*]\s/m.test(otherContent.trim()) || /^\d+\.\s/m.test(otherContent.trim())) {
-                    const items = otherContent.split(/\n/).filter(Boolean).map((item) =>
-                        item
-                            .replace(/^\s*[-*]\s/, "") // Remove unordered list markers
-                            .replace(/^\d+\.\s/, "") // Remove ordered list markers
-                            .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
-                            .replace(/`([^`]+)`/g, "<code>$1</code>") // Inline code
-                    );
+                    const items = otherContent
+                        .split(/\n/)
+                        .filter(Boolean)
+                        .map((item) =>
+                            item
+                                .replace(/^\s*[-*]\s/, "")
+                                .replace(/^\d+\.\s/, "")
+                                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                                .replace(/`([^`]+)`/g, "<code>$1</code>")
+                        );
 
                     return (
                         <ul key={index} className="my-4 space-y-2">
@@ -269,10 +283,9 @@ export default function CourseDetails() {
                     );
                 }
 
-                // Handle bold text and inline code in paragraphs
                 const formattedText = otherContent
-                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
-                    .replace(/`([^`]+)`/g, "<code>$1</code>"); // Inline code
+                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+                    .replace(/`([^`]+)`/g, "<code>$1</code>");
 
                 return (
                     <p
@@ -291,6 +304,8 @@ export default function CourseDetails() {
         if (!subtopic) return null;
 
         const isGenerating = generatingSubtopicId === subtopic.id && progress?.status !== 'completed';
+        const isGeneratingTopic = generatingTopicJobId === topic.id && topicRealTimeProgress?.status !== 'completed';
+
         const isCompleted = subtopic.status === 'complete' && subtopic.content;
 
         return (
@@ -321,9 +336,22 @@ export default function CourseDetails() {
 
                 {/* Content or Generate Button */}
                 {isCompleted ? (
-                    <div className="prose prose-gray max-w-none">
-                        {formatContent(subtopic.content)}
-                    </div>
+                    <>
+                        <div className="prose prose-gray max-w-none">
+                            {formatContent(subtopic.content)}
+                        </div>
+                        <div className="flex justify-end mt-4">
+
+                            <ContentEditor
+                                title={subtopic.title}
+                                content={subtopic.content}
+                                thumbnail={subtopic.thumbnail}
+                                banner={subtopic.banner}
+                                onSave={(data) => handleUpdateSubtopic(topic.id, subtopic.id, data)}
+                                type="subtopic"
+                            />
+                        </div>
+                    </>
                 ) : (
                     <div className="space-y-4">
                         {isGenerating && progress ? (
@@ -348,9 +376,11 @@ export default function CourseDetails() {
         );
     };
 
-    const renderTopicContent = (topic: Topic) => {
-        const isGenerating = generatingTopicId === topic.id && topicProgress?.status !== 'completed';
-        const isCompleted = topic.status === 'complete' && topic.content;
+    const renderTopicContent = (course: Course, topic: Topic) => {
+        if (!topic) return null;
+
+        const isGeneratingTopic = generatingTopicId === topic.id && progress?.status !== 'completed';
+        const isCompleted = topic.content !== '' && topic.content;
 
         return (
             <div className="space-y-6">
@@ -380,39 +410,90 @@ export default function CourseDetails() {
 
                 {/* Content or Generate Button */}
                 {isCompleted ? (
-                    <div className="prose prose-gray max-w-none">
-                        {formatContent(topic.content)}
-                    </div>
+                    <>
+                        <div className="prose prose-gray max-w-none">
+                            {formatContent(topic.content)}
+                        </div>
+                        <div className="flex justify-end mt-4">
+                            <ContentEditor
+                                title={topic.title}
+                                content={topic.content}
+                                thumbnail={topic.thumbnail}
+                                banner={topic.banner}
+                                onSave={(data) => handleUpdateTopic(topic.id, data)}
+                                type="topic"
+                            />
+                        </div>
+                    </>
                 ) : (
                     <div className="space-y-4">
-                        {isGenerating && topicProgress ? (
-                            <CourseProgress progress={topicProgress} />
+                        {isGeneratingTopic && topicRealTimeProgress ? (
+                            <CourseProgress progress={topicRealTimeProgress} />
+                        ) : isGeneratingTopic ? (
+                            <p className="text-blue-500">Waiting for progress updates...</p>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
                                 <p className="text-muted-foreground mb-4">Content needs to be generated for this Topic</p>
-                                <Button
-                                    onClick={() => handleGenerateContent(topic)}
-                                    className="flex items-center gap-2"
-                                >
-                                    <Wand2 className="h-4 w-4" />
-                                    Generate Content
-                                </Button>
+                                <div className="flex gap-4">
+                                    <div>
+                                        <Button
+                                            onClick={() => handleGenerateContent(topic, 'partially')}
+                                            className="flex items-center gap-2"
+                                            variant="orange"
+                                            data-tooltip-id="partial-tooltip"
+                                        >
+                                            <Radiation className="h-4 w-4 ml-2" />
+                                            Generate Partially
+                                        </Button>
+                                        <Tooltip
+                                            id="partial-tooltip"
+                                            place="top"
+                                            effect="float"
+                                            delayShow={150}
+                                            delayHide={250}
+                                            className="tooltip-green"
+                                        >
+                                            <div>
+                                                <strong>Partial Generation:</strong>
+                                                <p className="mt-1">
+                                                    Generates the course description, banner, thumbnail, and one main
+                                                    topic with its content and images fully generated. Subtopics for the
+                                                    topic must be generated manually.
+                                                </p>
+                                            </div>
+                                        </Tooltip>
+                                    </div>
+                                    <div>
+                                        <Button
+                                            onClick={() => handleGenerateContent(topic)}
+                                            className="flex items-center gap-2"
+                                            data-tooltip-id="full-tooltip"
+                                        >
+                                            <Wand2 className="h-4 w-4" />
+                                            Generate Content
+                                        </Button>
+                                        <Tooltip
+                                            id="full-tooltip"
+                                            place="top"
+                                            effect="float"
+                                            delayShow={200}
+                                            delayHide={300}
+                                            className="tooltip-green"
+                                        >
+                                            <div>
+                                                <strong>Full Generation:</strong>
+                                                <p className="mt-1">
+                                                    Generates the topic content and images fully, including all subtopics with
+                                                    their content and images.
+                                                </p>
+                                            </div>
+                                        </Tooltip>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
                 )}
-
-                {/* Align ContentEditor to the right */}
-                <div className="flex justify-end mt-4">
-                    <ContentEditor
-                        title={topic.title}
-                        content={formatContent(topic.content)}
-                        thumbnail={topic.thumbnail}
-                        banner={topic.banner}
-                        onSave={(data) => handleUpdateTopic(topic.id, data)}
-                        type="topic"
-                    />
-                </div>
             </div>
         );
     };
@@ -443,13 +524,13 @@ export default function CourseDetails() {
             ? `${import.meta.env.VITE_API_URL}${course.thumbnail}`
             : null;
 
-    const handleGenerateContent = async (topic: Topic) => {
+    const handleGenerateContent = async (topic: Topic, courseGenerationType: string = 'full') => {
         try {
             if (!id) return;
             setGeneratingTopicId(topic.id);
-            const response = await generateTopicContent(id, topic.id);
+            const response = await generateTopicContent(id, topic.id, courseGenerationType);
             if (response.jobId) {
-                setGeneratingTopicJobId(response.jobId); // Set the job ID for progress tracking
+                setGeneratingTopicJobId(response.jobId);
                 const updatedTopics = course?.topics.map(t =>
                     t.id === topic.id ? { ...t, jobId: response.jobId } : t
                 ) || [];
@@ -459,9 +540,9 @@ export default function CourseDetails() {
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Failed to generate topic content'
+                description: 'Failed to generate topic content',
             });
-            setGeneratingTopicId(null); // Clear generating state on error
+            setGeneratingTopicId(null);
         }
     };
 
@@ -589,7 +670,7 @@ export default function CourseDetails() {
                             </div>
                             <ContentEditor
                                 title={course.title}
-                                content={formatContent(course.description)}
+                                content={course.description}
                                 thumbnail={course.thumbnail}
                                 banner={course.banner}
                                 onSave={handleUpdateCourse}
@@ -660,66 +741,8 @@ export default function CourseDetails() {
                                         </AccordionTrigger>
                                         <AccordionContent>
                                             <div className="px-6 py-4 space-y-6">
-                                                {/* Topic Banner */}
-                                                {topic.banner && (
-                                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
-                                                        <img
-                                                            src={topic.banner}
-                                                            alt={`${topic.title} banner`}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {/* Topic Content */}
-                                                {topic.content ? (
-                                                    <div className="prose max-w-none">
-                                                        {topic.status === 'complete' ? (
-                                                            formatContent(topic.content)
-                                                        ) : (
-                                                            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
-                                                                <p className="text-muted-foreground mb-4">Topic content needs to be generated</p>
-                                                                <Button
-                                                                    onClick={() => handleGenerateContent(topic)}
-                                                                    className="flex items-center gap-2"
-                                                                >
-                                                                    <Wand2 className="h-4 w-4" />
-                                                                    Generate Content
-                                                                </Button>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Align ContentEditor to the right */}
-                                                        <div className="flex justify-end mt-4">
-                                                            <ContentEditor
-                                                                title={topic.title}
-                                                                content={formatContent(topic.content)}
-                                                                thumbnail={topic.thumbnail}
-                                                                banner={topic.banner}
-                                                                onSave={(data) => handleUpdateTopic(topic.id, data)}
-                                                                type="topic"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-4">
-                                                        {/* Check if topic generation is in progress */}
-                                                        {generatingTopicId === topic.id && progress?.status !== 'completed' ? (
-                                                            <CourseProgress progress={progress} />
-                                                        ) : (
-                                                            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 rounded-lg">
-                                                                <p className="text-muted-foreground mb-4">Topic content needs to be generated</p>
-                                                                <Button
-                                                                    onClick={() => handleGenerateContent(topic)}
-                                                                    className="flex items-center gap-2"
-                                                                >
-                                                                    <Wand2 className="h-4 w-4" />
-                                                                    Generate Content
-                                                                </Button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                {/* Render Topic Content */}
+                                                {renderTopicContent(course, topic)}
 
                                                 {/* Subtopics */}
                                                 {topic.subtopics && topic.subtopics.length > 0 && (

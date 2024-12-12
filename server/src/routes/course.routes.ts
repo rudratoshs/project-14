@@ -2,6 +2,10 @@ import { Router } from 'express';
 import courseController from '../controllers/course.controller';
 import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/auth';
+import multer from 'multer';
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 const router = Router();
 
@@ -54,5 +58,7 @@ router.get(
   requirePermission('view_course'),
   (req, res) => courseController.getSubtopicById(req, res)
 );
+
+router.post('/upload-image', upload.single('file'), (req, res) => courseController.uploadImage(req, res));
 
 export default router;

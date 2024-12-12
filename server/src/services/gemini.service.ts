@@ -6,7 +6,8 @@ import {
   generateSubtopicContentPrompt,
   generateTextPromptForImage,
   generatePromptForDescription,
-  generatePromptForImages
+  generatePromptForImages,
+  generateTopicContentPrompt
 } from '../utils/prompts';
 import Course, { ICourse } from '../models/mongodb/Course';
 import ImageService from './image.service';
@@ -387,7 +388,8 @@ export class GeminiService {
     topicId: string,
     jobId: string,
     topicTitle: string,
-    courseTitle: string
+    courseTitle: string,
+    topicGenerateType: string
   ): Promise<TopicGenerationResult> {
     try {
       // Generate main content
@@ -399,7 +401,14 @@ export class GeminiService {
         }
       });
 
-      const topicPrompt = generateSubtopicContentPrompt(topicTitle, topicTitle).trim();
+      let topicPrompt: string;
+
+      if (topicGenerateType === 'full') {
+        topicPrompt = generateTopicContentPrompt(topicTitle).trim();
+      } else {
+        topicPrompt = generateSubtopicContentPrompt(topicTitle, topicTitle).trim();
+      }
+
       const result = await model.generateContent(topicPrompt);
       const response = await result.response;
       const text = await response.text();

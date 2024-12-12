@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { CourseService } from '../services/course.service';
+import ImageService from '../services/image.service';
 import { CreateCourseData, UpdateCourseData } from '../types/course';
 import { courseGenerationQueue, topicGenerationQueue, subtopicGenerationQueue } from '../queues';
 import { v4 as uuidv4 } from 'uuid';
@@ -20,7 +21,7 @@ export class CourseController {
   async createCourse(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user!.id;
-      const data: CreateCourseData = req.body; 
+      const data: CreateCourseData = req.body;
 
       if (!data.title?.trim()) {
         res.status(400).json({ message: 'Title is required' });
@@ -182,12 +183,14 @@ export class CourseController {
   async generateTopicContent(req: Request, res: Response): Promise<void> {
     try {
       const { courseId, topicId } = req.params;
+      const { topicGenerateType = 'full' } = req.body;
       const jobId = uuidv4();
 
       await topicGenerationQueue.add({
         courseId,
         topicId,
         jobId,
+        topicGenerateType
       });
 
       res.status(202).json({
@@ -252,6 +255,23 @@ export class CourseController {
       });
     }
   }
-}
 
+  async uploadImage(req: Request, res: Response): Promise<any> {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const fileBuffer = req.file.buffer;
+      const originalName = req.file.originalname;
+
+      const imageUrl = await ImageService.uploadAndStoreImageLocally(fileBuffer, originalName);
+
+      return res.status(200).json({ imageUrl });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return res.status(500).json({ error: 'Failed to upload image' });
+    }
+  }
+}
 export default new CourseController();

@@ -102,9 +102,15 @@ export const previewCourseContent = async (data: CreateCourseData): Promise<Cour
   }
 };
 
-export const generateTopicContent = async (courseId: string, topicId: string): Promise<{ jobId: string }> => {
+export const generateTopicContent = async (
+  courseId: string,
+  topicId: string,
+  topicGenerateType: string = 'full' // Default to 'full'
+): Promise<{ jobId: string }> => {
   try {
-    const response = await axios.post(`/courses/${courseId}/topics/${topicId}/generate`);
+    const response = await axios.post(`/courses/${courseId}/topics/${topicId}/generate`, {
+      topicGenerateType,
+    });
     return response.data;
   } catch (error) {
     console.error('Error generating topic content:', error);
@@ -139,5 +145,23 @@ export const getJobProgress = async (jobId: string) => {
   } catch (error) {
     console.error('Error fetching job progress:', error);
     throw error;
+  }
+};
+
+export const handleImageUpload = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await axios.post('/courses/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data.imageUrl;
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    throw new Error('Failed to upload image');
   }
 };

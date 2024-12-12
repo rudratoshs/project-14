@@ -119,7 +119,7 @@ export class CourseService {
     const course = await Course.findByIdAndUpdate(courseId, data, {
       new: true,
     });
-    console.log('course',course)
+    console.log('course', course)
 
     if (course) {
       await prisma.course.update({
@@ -173,7 +173,12 @@ export class CourseService {
  * @param jobId - Job ID for progress tracking.
  * @returns The updated topic.
  */
-  async generateTopicContent(courseId: string, topicId: string, jobId: string): Promise<any> {
+  async generateTopicContent(
+    courseId: string,
+    topicId: string,
+    jobId: string,
+    topicGenerateType: string
+  ): Promise<any> {
     const course = await Course.findById(courseId);
     if (!course) throw new Error('Course not found');
 
@@ -188,7 +193,8 @@ export class CourseService {
         topicId,
         jobId,
         topic.title,
-        course.title
+        course.title,
+        topicGenerateType
       );
 
       Object.assign(topic, {
@@ -197,7 +203,7 @@ export class CourseService {
         banner: generatedContent.banner,
       });
 
-      if (topic.subtopics?.length) {
+      if (topicGenerateType === 'full' && topic.subtopics?.length) {
         const totalSubtopics = topic.subtopics.length;
         let subtopicsCompleted = 0;
 
@@ -217,7 +223,7 @@ export class CourseService {
               courseId,
               topicId,
               subtopic.id,
-              jobId,
+              jobId
             );
 
             Object.assign(subtopic, {

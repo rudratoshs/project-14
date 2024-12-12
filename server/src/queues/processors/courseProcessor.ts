@@ -63,7 +63,7 @@ async function processTopics(
       },
     });
 
-    await courseService.generateTopicContent(courseId, topic.id, jobId);
+    await courseService.generateTopicContent(courseId, topic.id, jobId,'full');
     topicsCompleted++;
 
     if (topic.subtopics?.length) {

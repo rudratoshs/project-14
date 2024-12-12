@@ -25,6 +25,7 @@ export default function ContentEditor({
   const { toast } = useToast();
 
   const handleSave = async (data: { title: string; content?: string; thumbnail?: string; banner?: string }) => {
+    console.log('contentn',content)
     try {
       setIsSaving(true);
       await onSave(data);

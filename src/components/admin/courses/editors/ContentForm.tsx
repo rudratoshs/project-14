@@ -1,24 +1,30 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import 'react-quill/dist/quill.snow.css';
+import ImageUpload from './ImageUpload';
 import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
-interface QuizEditorProps {
+interface ContentFormProps {
   title: string;
-  description: string;
   content: string;
+  thumbnail: string;
+  banner: string;
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
+  onThumbnailChange: (value: string) => void;
+  onBannerChange: (value: string) => void;
+  courseId: string; // Added courseId for image upload
+  type: 'course' | 'topic' | 'subtopic';
 }
 
 const modules = {
   toolbar: [
-    [{ header: [1, 2, 3, false] }], // Headings
-    ['bold', 'italic', 'underline', 'strike'], // Text formatting
-    [{ list: 'ordered' }, { list: 'bullet' }], // Lists
-    ['link', 'image', 'video'], // Media
-    ['code-block'], // Code block
-    ['clean'], // Clear formatting
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['link', 'image', 'video'],
+    ['code-block'],
+    ['clean'],
   ],
 };
 
@@ -38,43 +44,64 @@ const formats = [
 
 const decodeHTML = (html: string) => {
   const textarea = document.createElement('textarea');
-  textarea.innerHTML = html;
+  textarea.innerHTML = html || ''; // Ensure the input is a valid string
   return textarea.value;
 };
 
-export default function QuizEditor({
+export default function ContentForm({
   title,
-  description,
   content,
+  thumbnail,
+  banner,
   onTitleChange,
   onContentChange,
-}: QuizEditorProps) {
+  onThumbnailChange,
+  onBannerChange,
+  courseId, // Ensure courseId is passed for uploading
+  type,
+}: ContentFormProps) {
   return (
-    <div className="space-y-6">
-      {/* Quiz Title */}
+    <>
       <div className="space-y-2">
-        <Label htmlFor="quiz-title">Quiz Title</Label>
+        <Label htmlFor="title">Title</Label>
         <Input
-          id="quiz-title"
+          id="title"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
-          placeholder="Enter quiz title"
+          placeholder={`Enter ${type} title`}
         />
       </div>
-      {/* Quiz Content (HTML Editor for Questions/Options/Explanations) */}
+
       <div className="space-y-2">
-        <Label htmlFor="quiz-content">Quiz Content</Label>
+        <Label htmlFor="content">Content</Label>
         <ReactQuill
-          id="quiz-content"
+          id="content"
           theme="snow"
-          value={decodeHTML(content)} // Decoded content for editor
-          onChange={onContentChange} // Save raw HTML
-          placeholder="Design your quiz (e.g., add questions, options, explanations)"
+          value={decodeHTML(content || '')} // Ensure content is a valid string
+          onChange={onContentChange}
+          placeholder={`Enter ${type} content`}
           modules={modules}
           formats={formats}
-          className="bg-white min-h-[300px] h-[150px]"
+          className="bg-white min-h-[200px] h-[300px]"
         />
       </div>
-    </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <ImageUpload
+          label="Thumbnail"
+          value={thumbnail}
+          onChange={onThumbnailChange}
+          size="thumbnail"
+          courseId={courseId}
+        />
+        <ImageUpload
+          label="Banner"
+          value={banner}
+          onChange={onBannerChange}
+          size="banner"
+          courseId={courseId}
+        />
+      </div>
+    </>
   );
 }

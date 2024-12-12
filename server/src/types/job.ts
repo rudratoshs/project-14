@@ -44,6 +44,7 @@ export interface TopicGenerationJob {
   courseId: string;
   topicId: string;
   jobId: string;
+  topicGenerateType:string;
 }
 
 export interface SubtopicGenerationJob {
