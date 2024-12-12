@@ -8,18 +8,20 @@ datasource db {
 }
 
 model User {
-  id               String   @id @default(uuid())
+  id               String             @id @default(uuid())
   name             String
-  email            String   @unique
+  email            String             @unique
   password         String
   roleId           String
-  subscriptionPlan String   @default("free")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  role             Role     @relation(fields: [roleId], references: [id])
-  courses          Course[] // Add this field to establish the reverse relation
+  subscriptionPlan String             @default("free")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  role             Role               @relation(fields: [roleId], references: [id])
+  courses          Course[]           // Reverse relation to Course model
+  subscriptions    UserSubscription[] // Reverse relation to UserSubscription
 
   @@index([roleId])
+  @@map("User")
 }
 
 model Role {
@@ -52,18 +54,64 @@ model RolePermission {
 }
 
 model Course {
-  id            String   @id @default(uuid())
-  title         String
-  description   String   @db.Text
-  type          String   @default("image_theory")
-  accessibility String   @default("free")
-  userId        String
-  mongoId       String   @unique
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id]) // Forward relation to User
+  id                  String   @id @default(uuid())
+  title               String
+  description         String   @db.Text
+  type                String   @default("image_theory")
+  accessibility       String   @default("free")
+  userId              String
+  mongoId             String   @unique
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id]) // Forward relation to User
+  subscriptionRequired Boolean @default(false)
 
   @@index([userId])
   @@map("courses")
+}
 
+model SubscriptionPlan {
+  id          String             @id @default(uuid())
+  name        String             @unique
+  description String?            @db.Text
+  price       Decimal            @db.Decimal(10, 2)
+  interval    Interval
+  features    Json?
+  courseLimit Int                @default(0)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  subscriptions UserSubscription[]
+
+  @@map("subscriptionPlans")
+}
+
+model UserSubscription {
+  id        String             @id @default(uuid())
+  userId    String
+  planId    String
+  status    SubscriptionStatus
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([planId])
+  @@map("userSubscriptions")
+}
+
+enum Interval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
 }
