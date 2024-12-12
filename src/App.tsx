@@ -17,10 +17,12 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import Dashboard from '@/components/admin/Dashboard';
 import AdminLogin from '@/components/admin/AdminLogin';
 import UserList from '@/components/admin/users/UserList';
+import UserDetails from '@/components/admin/users/UserDetails';
 import RoleList from '@/components/admin/roles/RoleList';
 import PermissionList from '@/components/admin/permissions/PermissionList';
 import CourseList from '@/components/admin/courses/CourseList';
 import CourseDetails from '@/components/admin/courses/CourseDetails';
+import SubscriptionList from '@/components/admin/subscriptions/SubscriptionList';
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -46,10 +48,12 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/users" element={<UserList />} />
+                      <Route path="/users/:id" element={<UserDetails />} />
                       <Route path="/roles" element={<RoleList />} />
                       <Route path="/permissions" element={<PermissionList />} />
                       <Route path="/courses" element={<CourseList />} />
                       <Route path="/courses/:id" element={<CourseDetails />} />
+                      <Route path="/subscriptions" element={<SubscriptionList />} />
                       <Route path="*" element={<Navigate to="/admin" replace />} />
                     </Routes>
                   </AdminLayout>

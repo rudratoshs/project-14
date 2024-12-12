@@ -6,6 +6,7 @@ import userRoutes from './routes/user.routes.js';
 import roleRoutes from './routes/role.routes.js';
 import permissionRoutes from './routes/permission.routes.js';
 import courseRoutes from './routes/course.routes.js';
+import subscriptionRoutes from './routes/subscription.routes.js';
 import { authenticate } from './middleware/auth.js';
 import connectDB from './config/mongodb.js';
 import { setupQueueProcessors } from './queues/setup';
@@ -47,6 +48,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/permissions', permissionRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/subscriptions',subscriptionRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

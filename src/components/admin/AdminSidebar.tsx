@@ -11,7 +11,8 @@ import {
   UserCircle,
   LogOut,
   Shield,
-  Lock
+  Lock,
+  CreditCard
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,9 +29,10 @@ const menuItems = [
   { icon: Users, label: 'Users', href: '/admin/users' },
   { icon: Shield, label: 'Roles', href: '/admin/roles' },
   { icon: Lock, label: 'Permissions', href: '/admin/permissions' },
+  { icon: BookOpen, label: 'Courses', href: '/admin/courses' },
+  { icon: CreditCard, label: 'Subscriptions', href: '/admin/subscriptions' },
   { icon: Settings, label: 'Settings', href: '/admin/settings' },
   { icon: HelpCircle, label: 'Help', href: '/admin/help' },
-  { icon: BookOpen, label: 'Courses', href: '/admin/courses' },
 ];
 
 export default function AdminSidebar({ open, onOpenChange }: AdminSidebarProps) {

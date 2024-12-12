@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Eye } from 'lucide-react';
+import { SubscriptionCheck } from '@/components/subscription/SubscriptionCheck';
 import BasicInfoStep from './steps/BasicInfoStep';
 import TopicsStep from './steps/TopicsStep';
 import PreviewStep from './steps/PreviewStep';
@@ -62,42 +63,58 @@ export default function CourseWizard({ open, onOpenChange, onSuccess }: CourseWi
   }, [open]);
 
   const renderStep = () => {
-    switch (currentStep) {
-      case 0:
-        return (
-          <BasicInfoStep
-            data={courseData}
-            onUpdate={updateCourseData}
-            onValidationChange={handleValidationChange}
-          />
-        );
-      case 1:
-        return (
-          <TopicsStep
-            data={courseData}
-            onUpdate={updateCourseData}
-            onValidationChange={handleValidationChange}
-          />
-        );
-      case 2:
-        return (
-          <PreviewStep
-            data={courseData as CreateCourseData}
-            onProceed={handleNext}
-            onModify={handleBack}
-          />
-        );
-      case 3:
-        return (
-          <GenerationStep
-            data={courseData as CreateCourseData}
-            onSuccess={onSuccess}
-            onJobIdChange={setJobId}
-          />
-        );
-      default:
-        return null;
-    }
+    // Wrap content in SubscriptionCheck for steps that need validation
+    const content = (() => {
+      switch (currentStep) {
+        case 0:
+          return (
+            <BasicInfoStep
+              data={courseData}
+              onUpdate={updateCourseData}
+              onValidationChange={handleValidationChange}
+            />
+          );
+        case 1:
+          return (
+            <TopicsStep
+              data={courseData}
+              onUpdate={updateCourseData}
+              onValidationChange={handleValidationChange}
+            />
+          );
+        case 2:
+          return (
+            <PreviewStep
+              data={courseData as CreateCourseData}
+              onProceed={handleNext}
+              onModify={handleBack}
+            />
+          );
+        case 3:
+          return (
+            <GenerationStep
+              data={courseData as CreateCourseData}
+              onSuccess={onSuccess}
+              onJobIdChange={setJobId}
+            />
+          );
+        default:
+          return null;
+      }
+    })();
+
+    // Only wrap steps that need subscription validation
+    return currentStep < 2 ? (
+      <SubscriptionCheck
+        courseType={courseData.type || 'image_theory'}
+        numTopics={courseData.numTopics || 0}
+        numSubtopics={courseData.subtopics?.length || 0}
+      >
+        {content}
+      </SubscriptionCheck>
+    ) : (
+      content
+    );
   };
 
   return (

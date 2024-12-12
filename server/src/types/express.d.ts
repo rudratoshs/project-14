@@ -1,4 +1,5 @@
 import { User } from '@prisma/client';
+import { SubscriptionPlan } from './subscription';
 
 declare global {
   namespace Express {
@@ -11,6 +12,10 @@ declare global {
             };
           }[];
         };
+      };
+      subscription?: {
+        plan: SubscriptionPlan;
+        isActive: boolean;
       };
     }
   }
