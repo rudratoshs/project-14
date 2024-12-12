@@ -1,16 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth.routes.js';
-import userRoutes from './routes/user.routes.js';
-import roleRoutes from './routes/role.routes.js';
-import permissionRoutes from './routes/permission.routes.js';
-import courseRoutes from './routes/course.routes.js';
-import subscriptionRoutes from './routes/subscription.routes.js';
-import { authenticate } from './middleware/auth.js';
+import routes from './routes/index.js';
 import connectDB from './config/mongodb.js';
-import { setupQueueProcessors } from './queues/setup';
-import { initializeSocket } from './socket';
+import { setupQueueProcessors } from './queues/setup.js';
+import { initializeSocket } from './socket.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
@@ -23,6 +17,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Set up CORS with specific options
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}));
+
+// Set up static files directory
 const imagesDirectory = path.join(__dirname, '../images');
 if (!fs.existsSync(imagesDirectory)) {
   fs.mkdirSync(imagesDirectory, { recursive: true });
@@ -36,23 +37,20 @@ connectDB();
 // Initialize queue processors
 setupQueueProcessors();
 
-app.use(cors());
 app.use(express.json());
 
-// Public routes
-app.use('/api/auth', authRoutes);
+// Debug middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
-// Protected routes
-app.use('/api', authenticate);
-app.use('/api/users', userRoutes);
-app.use('/api/roles', roleRoutes);
-app.use('/api/permissions', permissionRoutes);
-app.use('/api/courses', courseRoutes);
-app.use('/api/subscriptions',subscriptionRoutes);
+// Mount all routes under /api
+app.use('/api', routes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
+  console.error('Global error handler:', err);
   res.status(500).json({ message: 'Something went wrong!' });
 });
 

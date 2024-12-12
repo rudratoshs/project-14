@@ -9,16 +9,21 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
+// Debug middleware
+router.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Public routes
 router.use('/auth', authRoutes);
-console.log('Registering subscription routes');
 
 // Protected routes
-router.use('/api', authenticate);
-router.use('/api/users', userRoutes);
-router.use('/api/roles', roleRoutes);
-router.use('/api/permissions', permissionRoutes);
-router.use('/api/courses', courseRoutes);
-router.use('/api/subscriptions', subscriptionRoutes);
+router.use(authenticate);
+router.use('/users', userRoutes);
+router.use('/roles', roleRoutes);
+router.use('/permissions', permissionRoutes);
+router.use('/courses', courseRoutes);
+router.use('/subscriptions', subscriptionRoutes);
 
 export default router;
