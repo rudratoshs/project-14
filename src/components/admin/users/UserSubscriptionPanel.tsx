@@ -15,9 +15,8 @@ interface UserSubscriptionPanelProps {
 }
 
 export default function UserSubscriptionPanel({ user, onSubscriptionChange }: UserSubscriptionPanelProps) {
-  const { subscription, loading } = useSubscription();
+  const { subscription, loading } = useSubscription(user);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
@@ -30,7 +29,6 @@ export default function UserSubscriptionPanel({ user, onSubscriptionChange }: Us
         return 'bg-blue-100 text-blue-800 border-blue-200';
     }
   };
-
   if (loading) {
     return (
       <Card>

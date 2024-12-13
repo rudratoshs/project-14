@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,7 +27,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { createUser, updateUser } from '@/lib/api/users';
+import { getSubscriptionPlans } from '@/lib/api/subscriptions';
 import { User } from '@/lib/types/user';
+import { SubscriptionPlan } from '@/lib/types/subscription';
 import { useRoles } from '@/hooks/useRoles';
 
 const userSchema = z.object({
@@ -35,7 +37,7 @@ const userSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters').optional(),
   roleId: z.string().min(1, 'Role is required'),
-  subscriptionPlan: z.enum(['free', 'pro', 'enterprise']),
+  subscriptionPlan: z.string(), // Dynamic string
 });
 
 type FormData = z.infer<typeof userSchema>;
@@ -55,6 +57,7 @@ export default function UserDialog({
 }: UserDialogProps) {
   const { toast } = useToast();
   const { roles } = useRoles();
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const form = useForm<FormData>({
     resolver: zodResolver(userSchema),
     defaultValues: {
@@ -62,18 +65,21 @@ export default function UserDialog({
       email: '',
       password: '',
       roleId: '',
-      subscriptionPlan: 'free',
+      subscriptionPlan: '',
     },
   });
 
   useEffect(() => {
     if (user) {
+      const activeSubscription = user.subscriptions?.find(
+        (sub) => sub.status === 'ACTIVE'
+      );
+
       form.reset({
         name: user.name,
         email: user.email,
-        password: '', // Reset password field since it isn't fetched
         roleId: user.roleId,
-        subscriptionPlan: user.subscriptionPlan as 'free' | 'pro' | 'enterprise',
+        subscriptionPlan: activeSubscription?.plan.name || '',
       });
     } else {
       form.reset({
@@ -81,33 +87,75 @@ export default function UserDialog({
         email: '',
         password: '',
         roleId: '',
-        subscriptionPlan: 'free',
+        subscriptionPlan: '',
       });
     }
   }, [user, form]);
 
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const plans = await getSubscriptionPlans();
+        setSubscriptionPlans(plans);
+      } catch (error) {
+        console.error('Failed to fetch subscription plans:', error);
+      }
+    };
+    fetchPlans();
+  }, []);
+
   const onSubmit = async (data: FormData) => {
     try {
+      const selectedPlan = subscriptionPlans.find(
+        (plan) => plan.name === data.subscriptionPlan
+      );
+
+      if (!selectedPlan) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Selected subscription plan is invalid',
+        });
+        return;
+      }
+
+      const updateData = {
+        ...data,
+        planId: selectedPlan.id, // Map to subscription plan ID
+      };
+
       if (user) {
-        await updateUser(user.id, data);
+        if (!updateData.password) {
+          delete updateData.password;
+        }
+        await updateUser(user.id, updateData);
         toast({
           title: 'Success',
           description: 'User updated successfully',
         });
       } else {
-        await createUser(data);
+        if (!updateData.password) {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Password is required for new users',
+          });
+          return;
+        }
+        await createUser(updateData);
         toast({
           title: 'Success',
           description: 'User created successfully',
         });
       }
+
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save user',
+        description: user ? 'Failed to update user' : 'Failed to create user',
       });
     }
   };
@@ -149,21 +197,23 @@ export default function UserDialog({
               )}
             />
 
-            {!user && (
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{user ? 'New Password (optional)' : 'Password'}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      {...field}
+                      placeholder={user ? 'Leave blank to keep current password' : 'Enter password'}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -209,9 +259,11 @@ export default function UserDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="free">Free</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                      {subscriptionPlans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.name}>
+                          {plan.name} (${plan.price} / {plan.interval.toLowerCase()})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

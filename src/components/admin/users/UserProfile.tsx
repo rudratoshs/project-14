@@ -14,7 +14,6 @@ interface UserProfileProps {
   user: User;
   onUserChange: () => void;
 }
-
 export default function UserProfile({ user, onUserChange }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user.name);
@@ -22,6 +21,7 @@ export default function UserProfile({ user, onUserChange }: UserProfileProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  console.log('user',user)
 
   const handleSave = async () => {
     try {
@@ -122,7 +122,7 @@ export default function UserProfile({ user, onUserChange }: UserProfileProps) {
       </Card>
 
       {/* Subscription Panel */}
-      {(currentUser?.role.name === 'admin' || currentUser?.id === user.id) && (
+      {(user?.role.name === 'admin' || user?.id === user.id) && (
         <UserSubscriptionPanel 
           user={user} 
           onSubscriptionChange={onUserChange}

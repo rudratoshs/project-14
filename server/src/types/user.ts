@@ -1,4 +1,5 @@
 import { User, Role, Permission } from '@prisma/client';
+import { UserSubscription } from './subscription';
 
 export interface UserWithRole extends User {
   role: Role & {
@@ -20,4 +21,6 @@ export interface UpdateUserData {
   email?: string;
   password?: string;
   roleId?: string;
+  subscriptions: UserSubscription[];
+  planId?:string;
 }

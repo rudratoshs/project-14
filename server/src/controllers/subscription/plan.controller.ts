@@ -6,7 +6,6 @@ class SubscriptionPlanController {
     try {
       console.log('Controller: Fetching subscription plans...'); // Debug log
       const plans = await subscriptionPlanService.getPlans();
-      console.log('Controller: Plans fetched:', plans); // Debug log
       res.json(plans);
     } catch (error) {
       console.error('Controller Error:', error); // Debug log

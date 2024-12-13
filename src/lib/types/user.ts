@@ -1,14 +1,15 @@
 import { Role } from './role';
+import { UserSubscription } from './subscription';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   roleId: string;
-  subscriptionPlan: 'free' | 'pro' | 'enterprise';
   role: Role;
   createdAt: string;
   updatedAt: string;
+  subscriptions: UserSubscription[];
 }
 
 export interface CreateUserData {
@@ -16,7 +17,6 @@ export interface CreateUserData {
   email: string;
   password?: string;
   roleId: string;
-  subscriptionPlan?: string;
 }
 
 export interface UpdateUserData {
@@ -24,5 +24,4 @@ export interface UpdateUserData {
   email?: string;
   password?: string;
   roleId?: string;
-  subscriptionPlan?: string;
 }

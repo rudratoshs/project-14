@@ -4,8 +4,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { getUserSubscription } from '@/lib/api/subscriptions';
 import { UserSubscription } from '@/lib/types/subscription';
 
-export function useSubscription() {
-  const { user } = useAuth();
+export function useSubscription(user: any) {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();

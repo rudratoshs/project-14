@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
+import { Link } from 'react-router-dom'; // Import Link
 import { IconButton } from 'rsuite';
 import EditIcon from '@rsuite/icons/Edit';
 import TrashIcon from '@rsuite/icons/Trash';
@@ -38,7 +38,7 @@ export default function UserTable({ users, onUserChange, loading }: UserTablePro
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const { toast } = useToast();
-
+  console.log('users', users)
   const handleDelete = async (user: User) => {
     try {
       await deleteUser(user.id);
@@ -95,32 +95,42 @@ export default function UserTable({ users, onUserChange, loading }: UserTablePro
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell className="font-medium">
+                  <Link
+                    to={`/admin/users/${user.id}`}
+                    className="text-blue-500 underline hover:text-blue-700"
+                  >
+                    {user.name}
+                  </Link>
+                </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">
-                    {user.role.name}
-                  </Badge>
+                  <Badge variant="secondary">{user.role.name}</Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">
-                    {user.subscriptionPlan}
-                  </Badge>
+                  {user.subscriptions && user.subscriptions.length > 0 ? (
+                    user.subscriptions.find(sub => sub.status === 'ACTIVE')?.plan ? (
+                      <Badge variant="outline">
+                        {user.subscriptions.find(sub => sub.status === 'ACTIVE')?.plan.name}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">No Active Subscription</Badge>
+                    )
+                  ) : (
+                    <Badge variant="outline">No Subscriptions</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    {/* Edit Button */}
                     <IconButton
                       icon={<EditIcon />}
                       size="sm"
                       appearance="subtle"
                       style={{
-                        color: 'blue', // Apply blue color for Edit action
+                        color: 'blue',
                       }}
                       onClick={() => handleEdit(user)}
                     />
-
-                    {/* Trash Button */}
                     <IconButton
                       icon={<TrashIcon />}
                       size="sm"
@@ -140,7 +150,6 @@ export default function UserTable({ users, onUserChange, loading }: UserTablePro
         </Table>
       </div>
 
-      {/* User Dialog */}
       <UserDialog
         user={selectedUser}
         open={isDialogOpen}
@@ -148,7 +157,6 @@ export default function UserTable({ users, onUserChange, loading }: UserTablePro
         onSuccess={onUserChange}
       />
 
-      {/* Delete Confirmation */}
       <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
