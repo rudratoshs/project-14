@@ -55,6 +55,7 @@ export const getCourse = async (id: string): Promise<Course> => {
 
 export const createCourse = async (data: CreateCourseData): Promise<Course> => {
   try {
+    console.log('hit create course api')
     const response = await axios.post('/courses', data);
     return response.data;
   } catch (error) {
