@@ -21,7 +21,6 @@ export default function UserProfile({ user, onUserChange }: UserProfileProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
-  console.log('user',user)
 
   const handleSave = async () => {
     try {

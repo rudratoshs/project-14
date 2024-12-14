@@ -38,7 +38,6 @@ export default function UserTable({ users, onUserChange, loading }: UserTablePro
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const { toast } = useToast();
-  console.log('users', users)
   const handleDelete = async (user: User) => {
     try {
       await deleteUser(user.id);

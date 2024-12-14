@@ -601,7 +601,6 @@ export default function CourseDetails() {
     const handleUpdateCourse = async (data: Partial<Course>) => {
         try {
             if (!course?.id) return;
-            console.log('data', data)
             await updateCourse(course.id, data);
             setCourse(prev => prev ? { ...prev, ...data } : null);
             toast({

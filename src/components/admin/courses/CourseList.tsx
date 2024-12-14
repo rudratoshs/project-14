@@ -22,7 +22,6 @@ export default function CourseList() {
       try {
         setLoading(true);
         const data = await getCourses();
-        console.log('data',data)
         setCourses(data);
       } catch (error) {
         toast({

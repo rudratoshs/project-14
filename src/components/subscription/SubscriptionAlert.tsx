@@ -9,7 +9,6 @@ interface SubscriptionAlertProps {
   requiredPlan: SubscriptionPlan;
   onUpgrade?: () => void;
 }
-
 export function SubscriptionAlert({ feature, requiredPlan, onUpgrade }: SubscriptionAlertProps) {
   return (
     <Alert variant="warning" className="bg-yellow-50 border-yellow-200">

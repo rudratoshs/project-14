@@ -19,8 +19,6 @@ export default function AuthModal({ isOpen, onClose, mode, onToggleMode }: AuthM
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle authentication logic here
-    console.log({ email, password, name });
   };
 
   return (

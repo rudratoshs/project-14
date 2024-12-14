@@ -133,9 +133,6 @@ export class UserService {
     id: string,
     data: UpdateUserData & { subscriptionPlan?: string; planId?: string }
   ) {
-    console.log('Incoming Data:', data);
-
-    // Validate email if provided
     if (data.email) {
       const existingUser = await prisma.user.findFirst({
         where: {
@@ -173,7 +170,6 @@ export class UserService {
         where: { id: data.planId },
       });
 
-      console.log('subscriptionPlanExists', subscriptionPlanExists, 'data.planId', data.planId)
       if (!subscriptionPlanExists) {
         throw new Error('Invalid subscription plan');
       }
@@ -195,7 +191,6 @@ export class UserService {
         },
       });
 
-      console.log('Created Subscription:', newSubscription);
       delete updateData.planId;
       delete updateData.subscriptionPlan;
     }
@@ -206,13 +201,10 @@ export class UserService {
       orderBy: { createdAt: 'desc' }, // Ensure the latest subscription is fetched
       include: { plan: true },
     });
-    console.log('Active subscription:', activeSubscription);
-
     // Remove any invalid fields from updateData
     delete updateData.subscriptionPlan; // Ensure this is removed before update
 
     // Update user fields
-    console.log('Updating user with data:', updateData);
     return prisma.user.update({
       where: { id },
       data: updateData,

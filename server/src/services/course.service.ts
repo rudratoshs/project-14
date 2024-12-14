@@ -15,6 +15,8 @@ export class CourseService {
  * @returns The created course document.
  */
   async createCourse(userId: string, data: CreateCourseData, jobId: string): Promise<ICourse> {
+    console.log('hit the create service')
+
     let mongoCourse: ICourse | null = null;
     let description = '';
     let thumbnail = '';
@@ -119,7 +121,6 @@ export class CourseService {
     const course = await Course.findByIdAndUpdate(courseId, data, {
       new: true,
     });
-    console.log('course', course)
 
     if (course) {
       await prisma.course.update({
@@ -299,10 +300,8 @@ export class CourseService {
     const size = 'banner';
 
     try {
-      console.log('Starting test for generateAndUploadImage...');
       const unixTimestamp = Math.floor(Date.now() / 1000);
       const imageUrl = await ImageService.generateAndUploadImage(prompt, size, true, unixTimestamp);
-      console.log('Test successful. Generated Image URL:', imageUrl);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       console.error('Test failed:', errorMessage);

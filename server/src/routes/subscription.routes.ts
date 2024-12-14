@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import subscriptionPlanController from '../controllers/subscription/plan.controller.js';
+import subscriptionPlanController from '../controllers/plan.controller.js';
 import userSubscriptionController from '../controllers/subscription/user-subscription.controller.js';
 import { requirePermission } from '../middleware/auth.js';
+import subscriptionController from '../controllers/subscription.controller.js';
 
 const router = Router();
 
 // Plan management routes
 router.get('/plans', (req, res) => {
-  console.log('Handling GET /plans request'); // Debug log
   subscriptionPlanController.getPlans(req, res);
 });
 
@@ -42,6 +42,10 @@ router.post('/users/:userId/subscribe',
 
 router.post('/users/:userId/cancel',
   (req, res) => userSubscriptionController.cancelSubscription(req, res)
+);
+
+router.get('/users/courseCount/:userId',
+  (req, res) => subscriptionController.getUserCourseCount(req, res)
 );
 
 export default router;

@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useEffect, useState } from 'react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,10 +12,10 @@ import { AlertTriangle } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionLimitIndicator } from '@/components/subscription/SubscriptionLimitIndicator';
 import { SubscriptionFeatureCheck } from '@/components/subscription/SubscriptionFeatureCheck';
-import { canCreateCourseType } from '@/lib/utils/subscription';
+import { getUserCourseCurrentCount } from '@/lib/utils/subscription';
 import { CreateCourseData } from '@/lib/types/course';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const formSchema = z.object({
   title: z
@@ -22,14 +23,12 @@ const formSchema = z.object({
     .min(2, 'Title must be at least 2 characters')
     .max(100, 'Title must be less than 100 characters')
     .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Title can only contain letters, numbers, spaces, hyphens, and underscores')
-    .trim()
-    .refine((val) => val.length > 0, { message: 'Title is required' }),
+    .trim(),
   description: z
     .string()
     .min(10, 'Description must be at least 10 characters')
     .max(500, 'Description must be less than 500 characters')
-    .trim()
-    .refine((val) => val.length > 0, { message: 'Description is required' }),
+    .trim(),
   type: z.enum(['image_theory', 'video_theory']),
   accessibility: z.enum(['free', 'paid', 'limited']),
 });
@@ -41,7 +40,9 @@ interface BasicInfoStepProps {
 }
 
 export default function BasicInfoStep({ data, onUpdate, onValidationChange }: BasicInfoStepProps) {
-  const { subscription } = useSubscription();
+  const { user: currentUser } = useAuth();
+  const { subscription } = useSubscription(currentUser);
+  const [courseCount, setCourseCount] = useState<number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,16 +55,24 @@ export default function BasicInfoStep({ data, onUpdate, onValidationChange }: Ba
     mode: 'onChange',
   });
 
-  // Check subscription limits and restrictions
+  // Fetch user course count
+  useEffect(() => {
+    if (currentUser) {
+      getUserCourseCurrentCount(currentUser.id)
+        .then((count) => setCourseCount(count))
+        .catch((error) => console.error('Error fetching course count:', error));
+    }
+  }, [currentUser]);
+
   const canCreateCourse =
     subscription?.plan &&
-    (subscription.plan.courseLimit === 0 || subscription.courseCount < subscription.plan.courseLimit);
+    (subscription.plan.courseLimit === 0 || (courseCount ?? 0) < subscription.plan.courseLimit);
 
   const availableCourseTypes = subscription?.plan
-    ? canCreateCourseType(subscription.plan)
-    : ['image_theory']; // Default to basic type for free plans
-
-  // Watch form state changes to update validation
+    ? subscription.plan.features.includes('video_generation')
+      ? ['image_theory', 'video_theory']
+      : ['image_theory']
+    : ['image_theory'];
   useEffect(() => {
     const subscription = form.watch(() => {
       const isValid = form.formState.isValid && canCreateCourse;
@@ -72,7 +81,6 @@ export default function BasicInfoStep({ data, onUpdate, onValidationChange }: Ba
     return () => subscription.unsubscribe();
   }, [form, canCreateCourse, onValidationChange]);
 
-  // Update parent form data on field changes
   const handleFieldChange = () => {
     const values = form.getValues();
     onUpdate(values);
@@ -80,9 +88,9 @@ export default function BasicInfoStep({ data, onUpdate, onValidationChange }: Ba
 
   return (
     <div className="space-y-6">
-      {subscription?.plan && subscription.plan.courseLimit > 0 && (
+      {subscription?.plan && subscription.plan.courseLimit > 0 && courseCount !== null && (
         <SubscriptionLimitIndicator
-          current={subscription.courseCount}
+          current={courseCount}
           limit={subscription.plan.courseLimit}
           label="Course Limit"
         />
@@ -153,42 +161,25 @@ export default function BasicInfoStep({ data, onUpdate, onValidationChange }: Ba
             control={form.control}
             name="type"
             render={({ field }) => (
-              <FormItem className="space-y-3">
+              <FormItem>
                 <FormLabel>Course Type</FormLabel>
                 <FormControl>
                   <RadioGroup
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    className="grid grid-cols-2 gap-4"
+                    defaultValue={
+                      availableCourseTypes.length === 1 ? availableCourseTypes[0] : field.value
+                    }
                   >
                     {['image_theory', 'video_theory'].map((type) => {
-                      const isAvailable = availableCourseTypes.includes(type);
-
                       return (
-                        <SubscriptionFeatureCheck
-                          key={type}
-                          feature={type === 'video_theory' ? 'video_generation' : 'image_generation'}
-                        >
-                          <div>
-                            <RadioGroupItem
-                              value={type}
-                              id={type}
-                              className="peer sr-only"
-                              disabled={!isAvailable}
-                            />
-                            <FormLabel
-                              htmlFor={type}
-                              className={cn(
-                                'flex flex-col items-center justify-between rounded-md border-2 border-muted bg-white p-4 hover:bg-gray-50 cursor-pointer',
-                                field.value === type && 'border-primary',
-                                !isAvailable && 'opacity-50 cursor-not-allowed'
-                              )}
-                            >
-                              <span className="text-sm font-medium">
-                                {type === 'image_theory' ? 'Image & Theory' : 'Video & Theory'}
-                              </span>
-                            </FormLabel>
-                          </div>
+                        <SubscriptionFeatureCheck key={type} feature={type}>
+                          <RadioGroupItem
+                            value={type}
+                            id={type}
+                            disabled={!availableCourseTypes.includes(type)}
+                          >
+                            {type === 'image_theory' ? 'Image & Theory' : 'Video & Theory'}
+                          </RadioGroupItem>
                         </SubscriptionFeatureCheck>
                       );
                     })}

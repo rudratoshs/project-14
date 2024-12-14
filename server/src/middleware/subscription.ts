@@ -82,7 +82,6 @@ export async function validateCourseLimit(
   try {
     const user = req.user;
     const subscription = req.subscription;
-
     // Admin users bypass course limits
     if (user?.role.name.toLowerCase() === 'admin') {
       return next();

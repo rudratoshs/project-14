@@ -4,6 +4,7 @@ import { canCreateCourseType, getMaxSubtopics } from '@/lib/utils/subscription';
 import { SubscriptionAlert } from './SubscriptionAlert';
 import { SubscriptionUpgradeDialog } from './SubscriptionUpgradeDialog';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SubscriptionCheckProps {
   courseType: string;
@@ -20,14 +21,13 @@ export function SubscriptionCheck({
   onUpgrade,
   children
 }: SubscriptionCheckProps) {
-  const { subscription, loading } = useSubscription();
+  const { user: currentUser } = useAuth();
+  const { subscription, loading } = useSubscription(currentUser);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
   if (loading) {
     return <div>Loading subscription details...</div>;
   }
-
-  // If no subscription, user needs to upgrade
   if (!subscription) {
     return (
       <>
@@ -48,7 +48,6 @@ export function SubscriptionCheck({
 
   const { plan } = subscription;
 
-  // Check course type restrictions
   if (!canCreateCourseType(plan, courseType)) {
     return (
       <>

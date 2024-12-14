@@ -4,11 +4,9 @@ import { SubscriptionPlan, CreateSubscriptionPlanData, UpdateSubscriptionPlanDat
 class SubscriptionPlanService {
   async getPlans(): Promise<SubscriptionPlan[]> {
     try {
-      console.log('Service: Fetching subscription plans...'); // Debug log
       const plans = await prisma.subscriptionPlan.findMany({
         orderBy: { price: 'asc' },
       });
-      console.log('Service: Found plans:', plans); // Debug log
       return plans;
     } catch (error) {
       console.error('Service Error:', error); // Debug log

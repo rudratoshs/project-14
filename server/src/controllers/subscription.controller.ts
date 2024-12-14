@@ -137,6 +137,21 @@ export class SubscriptionController {
       });
     }
   }
+
+  /**
+   * Get user's Current Course Count
+   */
+  async getUserCourseCount(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const count = await this.subscriptionService.getUserCourseCount(userId);
+      res.status(200).json({ courseCount: count });
+    } catch (error) {
+      res.status(400).json({
+        message: error instanceof Error ? error.message : 'Failed to get user course count',
+      });
+    }
+  }
 }
 
 export default new SubscriptionController();

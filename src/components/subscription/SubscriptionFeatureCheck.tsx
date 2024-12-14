@@ -3,6 +3,7 @@ import { hasFeature } from '@/lib/utils/subscription';
 import { SubscriptionAlert } from './SubscriptionAlert';
 import { SubscriptionUpgradeDialog } from './SubscriptionUpgradeDialog';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SubscriptionFeatureCheckProps {
   feature: string;
@@ -10,18 +11,18 @@ interface SubscriptionFeatureCheckProps {
 }
 
 export function SubscriptionFeatureCheck({ feature, children }: SubscriptionFeatureCheckProps) {
-  const { subscription } = useSubscription();
+  const { user: currentUser } = useAuth();
+  const { subscription } = useSubscription(currentUser);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-
   // If no subscription, show upgrade prompt
   if (!subscription) {
     return (
       <>
-        <SubscriptionAlert
+        {/* <SubscriptionAlert
           feature={feature}
-          requiredPlan={null}
+          requiredPlan={subscription?.plan!}
           onUpgrade={() => setShowUpgradeDialog(true)}
-        />
+        /> */}
         <SubscriptionUpgradeDialog
           open={showUpgradeDialog}
           onOpenChange={setShowUpgradeDialog}

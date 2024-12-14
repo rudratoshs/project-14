@@ -19,6 +19,7 @@ export class CourseController {
    * @param res Express Response object
    */
   async createCourse(req: Request, res: Response): Promise<void> {
+    console.log('hit the create course')
     try {
       const userId = req.user!.id;
       const data: CreateCourseData = req.body;

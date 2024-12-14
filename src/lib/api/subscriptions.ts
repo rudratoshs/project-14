@@ -72,3 +72,8 @@ export const subscribeUser = async (
 export const cancelSubscription = async (userId: string): Promise<void> => {
     await axios.post(`/subscriptions/users/${userId}/cancel`);
 };
+
+export const getUserCourseCount = async (userId: string): Promise<number> => {
+    const response = await axios.get(`/subscriptions/users/courseCount/${userId}`);
+    return response.data.courseCount;
+};

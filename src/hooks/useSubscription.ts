@@ -8,7 +8,6 @@ export function useSubscription(user: any) {
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-
   useEffect(() => {
     const fetchSubscription = async () => {
       if (!user) {

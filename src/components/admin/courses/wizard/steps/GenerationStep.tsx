@@ -27,9 +27,8 @@ export default function GenerationStep({
   useEffect(() => {
     const startGeneration = async () => {
       try {
-        console.log('Starting course generation with data:', data);
+        console.log('hit create course step ')
         const response = await createCourse(data);
-        console.log('Course generation started:', response);
         if (response.jobId) {
           setJobId(response.jobId);
           onJobIdChange(response.jobId);
@@ -49,7 +48,6 @@ export default function GenerationStep({
 
   useEffect(() => {
     if (progress?.status === 'completed') {
-      console.log('Course generation completed:', progress);
       toast({
         title: 'Success',
         description: 'Course generated successfully!',

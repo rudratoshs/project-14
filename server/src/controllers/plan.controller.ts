@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-import subscriptionPlanService from '../../services/subscription/plan.service.js';
+import subscriptionPlanService from '../services/subscription/plan.service.js';
 
 class SubscriptionPlanController {
   async getPlans(req: Request, res: Response): Promise<void> {
     try {
-      console.log('Controller: Fetching subscription plans...'); // Debug log
       const plans = await subscriptionPlanService.getPlans();
       res.json(plans);
     } catch (error) {

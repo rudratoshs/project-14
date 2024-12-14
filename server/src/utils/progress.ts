@@ -7,8 +7,6 @@ export async function updateJobProgress(
   update: Partial<JobProgress>
 ): Promise<void> {
   try {
-    console.log('Updating job progress:', { jobId, update });
-
     // Use findOneAndUpdate with upsert option
     const updatedProgress = await JobProgressModel.findOneAndUpdate(
       { jobId },

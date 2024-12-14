@@ -163,6 +163,15 @@ export class SubscriptionService {
       },
     });
   }
+
+  /**
+  * Get user's Course Course
+  */
+  async getUserCourseCount(userId: string): Promise<number> {
+    return prisma.course.count({
+      where: { userId: userId },
+    });
+  }
 }
 
 export default new SubscriptionService();

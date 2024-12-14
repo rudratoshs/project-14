@@ -15,9 +15,9 @@ export function hasFeatures(plan: SubscriptionPlan, requiredFeatures: string[]):
 export function getCourseTypeFeatures(type: string): string[] {
   switch (type.toLowerCase()) {
     case 'image_theory':
-      return ['image_generation', 'theory_content'];
+      return ['image_theory', 'theory_content'];
     case 'video_theory':
-      return ['video_generation', 'theory_content'];
+      return ['video_theory', 'theory_content'];
     default:
       return ['theory_content'];
   }

@@ -1,5 +1,6 @@
 import { SubscriptionPlan } from '../types/subscription';
-
+import { User } from '../types/user';
+import { getUserCourseCount } from '../api/subscriptions';
 /**
  * Formats the price with currency symbol
  */
@@ -12,7 +13,7 @@ export function formatPrice(price: number, interval: string): string {
  * Checks if a plan includes a specific feature
  */
 export function hasFeature(plan: SubscriptionPlan, feature: string): boolean {
-  return plan.features.includes(feature);
+ return plan.features.includes(feature);
 }
 
 /**
@@ -28,7 +29,7 @@ export function getMaxCourses(plan: SubscriptionPlan): string {
 export function getMaxSubtopics(plan: SubscriptionPlan): number {
   const subtopicFeature = plan.features.find(f => f.includes('subtopics_'));
   if (!subtopicFeature) return 3; // Default limit for free plan
-  
+
   const limit = parseInt(subtopicFeature.split('_')[1]);
   return isNaN(limit) ? 3 : limit;
 }
@@ -36,12 +37,16 @@ export function getMaxSubtopics(plan: SubscriptionPlan): number {
 /**
  * Checks if a plan allows a specific course type
  */
-export function canCreateCourseType(plan: SubscriptionPlan, type: string): boolean {
+export function canCreateCourseType(plan: SubscriptionPlan, type?: string): boolean {
+  if (!type) {
+    console.error('Course type is undefined or null');
+    return false; // or your default behavior
+  }
   switch (type.toLowerCase()) {
     case 'image_theory':
-      return hasFeature(plan, 'image_generation');
+      return hasFeature(plan, 'image_theory');
     case 'video_theory':
-      return hasFeature(plan, 'video_generation');
+      return hasFeature(plan, 'video_theory');
     default:
       return true;
   }
@@ -62,4 +67,8 @@ export function getAvailableCourseTypes(plan: SubscriptionPlan): string[] {
  */
 export function isUpgradeable(currentPlan: SubscriptionPlan, targetPlan: SubscriptionPlan): boolean {
   return targetPlan.price > currentPlan.price;
+}
+
+export function getUserCourseCurrentCount(userId: string): Promise<number> {
+  return getUserCourseCount(userId);
 }

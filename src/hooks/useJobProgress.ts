@@ -17,7 +17,6 @@ export function useJobProgress(jobId: string | null) {
     const fetchProgress = async () => {
       try {
         const data = await getJobProgress(jobId);
-        console.log('Initial progress data:', data);
         setProgress(data);
       } catch (err) {
         console.error('Error fetching initial progress:', err);
@@ -42,7 +41,6 @@ export function useJobProgress(jobId: string | null) {
     socketInstance.emit('subscribeToJob', jobId);
     
     socketInstance.on(`jobProgress:${jobId}`, (data: JobProgress) => {
-      console.log('Received progress update:', data);
       setProgress(data);
     });
 
@@ -54,7 +52,6 @@ export function useJobProgress(jobId: string | null) {
 
     // Handle reconnection
     socketInstance.on('reconnect', () => {
-      console.log('Socket reconnected',socket);
       socketInstance.emit('subscribeToJob', jobId);
     });
 

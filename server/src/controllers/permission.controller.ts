@@ -10,8 +10,6 @@ export class PermissionController {
 
   /**
    * Fetches all permissions.
-   * @param req Express Request object
-   * @param res Express Response object
    */
   async getPermissions(req: Request, res: Response): Promise<void> {
     try {
@@ -26,8 +24,6 @@ export class PermissionController {
 
   /**
    * Fetches a specific permission by ID.
-   * @param req Express Request object
-   * @param res Express Response object
    */
   async getPermissionById(req: Request, res: Response): Promise<void> {
     try {
@@ -43,6 +39,50 @@ export class PermissionController {
     } catch (error) {
       res.status(500).json({
         message: error instanceof Error ? error.message : 'Failed to fetch permission',
+      });
+    }
+  }
+
+  /**
+   * Creates a new permission.
+   */
+  async createPermission(req: Request, res: Response): Promise<void> {
+    try {
+      const { name, description } = req.body;
+
+      if (!name || !description) {
+        res.status(400).json({ message: 'Name and description are required' });
+        return;
+      }
+
+      const permission = await this.permissionService.create({ name, description });
+      res.status(201).json(permission);
+    } catch (error) {
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Failed to create permission',
+      });
+    }
+  }
+
+  /**
+   * Updates an existing permission by ID.
+   */
+  async updatePermission(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { name, description } = req.body;
+
+      const updatedPermission = await this.permissionService.update(id, { name, description });
+
+      if (!updatedPermission) {
+        res.status(404).json({ message: 'Permission not found' });
+        return;
+      }
+
+      res.json(updatedPermission);
+    } catch (error) {
+      res.status(500).json({
+        message: error instanceof Error ? error.message : 'Failed to update permission',
       });
     }
   }

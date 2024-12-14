@@ -62,7 +62,6 @@ export class GeminiService {
           },
         });
 
-        // Generate main images
         const imagePrompt = generatePromptForImages(data.title);
 
         await updateJobProgress(jobId, {
